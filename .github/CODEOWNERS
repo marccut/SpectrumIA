@@ -1,0 +1,40 @@
+# Code Owners for SpectrumIA
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners
+* @spectrumia-team
+
+# Core eye-tracking modules
+/core/ @spectrumia-team
+/core/face_detection.py @spectrumia-team
+/core/gaze_estimation.py @spectrumia-team
+/core/feature_extraction.py @spectrumia-team
+
+# Data models and schemas
+/models/ @spectrumia-team
+/models/schemas.py @spectrumia-team
+/models/database.py @spectrumia-team
+/models/migrations.sql @spectrumia-team
+
+# Streamlit application
+/app/ @spectrumia-team
+/app/pages/ @spectrumia-team
+
+# Testing
+/tests/ @spectrumia-team
+*.test.py @spectrumia-team
+
+# CI/CD and deployment
+/.github/ @spectrumia-team
+/Makefile @spectrumia-team
+/pyproject.toml @spectrumia-team
+.pre-commit-config.yaml @spectrumia-team
+
+# Documentation
+*.md @spectrumia-team
+/docs/ @spectrumia-team
+
+# Project configuration
+requirements.txt @spectrumia-team
+.env.example @spectrumia-team
+.gitignore @spectrumia-team
