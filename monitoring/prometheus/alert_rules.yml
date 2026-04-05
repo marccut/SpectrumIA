@@ -1,0 +1,156 @@
+# Alert Rules for SpectrumIA
+groups:
+  - name: spectrumia_alerts
+    interval: 30s
+    rules:
+      # Gaze Tracking Alerts
+      - alert: LowGazeTrackingConfidence
+        expr: gaze_tracking_confidence < 0.7
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low gaze tracking confidence"
+          description: "Gaze tracking confidence below 70%"
+
+      - alert: FaceDetectionFailures
+        expr: increase(face_detection_failures_total[5m]) > 5
+        labels:
+          severity: critical
+        annotations:
+          summary: "High face detection failures"
+          description: "More than 5 face detection failures in 5 minutes"
+
+      # Calibration Alerts
+      - alert: CalibrationSessionsFailing
+        expr: calibration_sessions_failed_total > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "High calibration failure rate"
+          description: "More than 10 failed calibration sessions"
+
+      - alert: LowCalibrationAccuracy
+        expr: gaze_calibration_accuracy_percent < 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low calibration accuracy"
+          description: "Calibration accuracy below 80%"
+
+      # Assessment Alerts
+      - alert: AssessmentSessionsFailing
+        expr: assessment_sessions_failed_total > 5
+        labels:
+          severity: critical
+        annotations:
+          summary: "Assessment failures detected"
+          description: "Multiple assessment session failures"
+
+      - alert: HighASDRiskDetected
+        expr: assessment_asd_risk_score > 0.8
+        labels:
+          severity: critical
+        annotations:
+          summary: "High ASD risk detected"
+          description: "Assessment indicates high ASD risk (>0.8)"
+
+      # Database Alerts
+      - alert: DatabaseHighLatency
+        expr: db_query_duration_seconds > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database latency"
+          description: "Database queries taking >1 second"
+
+      - alert: DatabaseConnectionErrors
+        expr: increase(db_errors_total[5m]) > 10
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection errors"
+          description: "High rate of database errors"
+
+      # System Alerts
+      - alert: HighCPUUsage
+        expr: node_cpu_usage > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage above 80%"
+
+      - alert: HighMemoryUsage
+        expr: node_memory_usage > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage above 85%"
+
+      - alert: DiskSpaceLow
+        expr: node_disk_available_percent < 10
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 10% disk space available"
+
+      # API Alerts
+      - alert: HighHTTPErrorRate
+        expr: increase(http_requests_total{status=~"5.."}[5m]) > 10
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP error rate"
+          description: "More than 10 server errors in 5 minutes"
+
+      - alert: HighHTTPLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds) > 1.0
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP latency"
+          description: "95th percentile HTTP latency >1 second"
+
+      # Session Alerts
+      - alert: NoActiveSessions
+        expr: active_sessions == 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active sessions"
+          description: "No active sessions for 30 minutes"
+
+      - alert: HighActiveSessions
+        expr: active_sessions > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of active sessions"
+          description: "More than 10 concurrent sessions"
+
+      # Service Health
+      - alert: ServiceDown
+        expr: up{job="spectrumia"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SpectrumIA service is down"
+          description: "SpectrumIA service has been down for 2 minutes"
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus monitoring service is down"
