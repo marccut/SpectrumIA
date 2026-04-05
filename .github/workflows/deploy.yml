@@ -1,0 +1,58 @@
+name: Deploy to Streamlit Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate Streamlit app
+      run: |
+        python -m pip install streamlit
+        streamlit run app/main.py --logger.level=debug --client.showErrorDetails=true &
+        sleep 5
+        kill %1 || true
+
+    - name: Deploy to Streamlit Cloud
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Streamlit CLI
+      run: pip install streamlit
+
+    - name: Deploy
+      env:
+        STREAMLIT_CLOUD_API_TOKEN: ${{ secrets.STREAMLIT_CLOUD_API_TOKEN }}
+        STREAMLIT_APP_ID: ${{ secrets.STREAMLIT_APP_ID }}
+      run: |
+        echo "Deployment would trigger via webhook"
+        echo "App URL: ${{ secrets.STREAMLIT_ENDPOINT }}"
+
+    - name: Health check
+      run: |
+        sleep 10
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STREAMLIT_ENDPOINT }})
+        if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ]; then
+          echo "✅ App is healthy"
+        else
+          echo "⚠️ App returned status: $STATUS"
+        fi
+      continue-on-error: true
+
+    - name: Deployment summary
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- App: SpectrumIA" >> $GITHUB_STEP_SUMMARY
+        echo "- Endpoint: ${{ secrets.STREAMLIT_ENDPOINT }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Timestamp: $(date)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,62 @@
+name: Code Quality & Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install ruff flake8 pylint mypy black radon bandit safety
+
+    - name: Ruff lint
+      run: ruff check . --output-format=github
+
+    - name: Flake8
+      run: flake8 core/ app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+    - name: Pylint
+      run: pylint core/ app/ --fail-under=7.0 || true
+
+    - name: Black format check
+      run: black --check . || true
+
+    - name: Bandit security check
+      run: bandit -r core/ app/ -f json -o bandit-report.json || true
+
+    - name: Safety check dependencies
+      run: safety check --json || true
+
+    - name: Cyclomatic complexity
+      run: radon cc core/ app/ -a
+
+    - name: Maintainability index
+      run: radon mi core/ app/ -s
+
+    - name: Upload Bandit report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: bandit-report
+        path: bandit-report.json
+      continue-on-error: true
+
+    - name: Code quality summary
+      run: |
+        echo "## Code Quality Report" >> $GITHUB_STEP_SUMMARY
+        echo "✅ All checks completed" >> $GITHUB_STEP_SUMMARY

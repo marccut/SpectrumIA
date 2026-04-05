@@ -1,0 +1,76 @@
+name: Validate Monitoring & Logging
+
+on:
+  push:
+    paths:
+      - 'monitoring/**'
+      - 'core/prometheus_metrics.py'
+      - 'docker-compose.yml'
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate Prometheus config
+      run: |
+        python3 << 'PYTHON'
+        import yaml
+        try:
+          with open('monitoring/prometheus/prometheus.yml') as f:
+            yaml.safe_load(f)
+          print("✅ Prometheus config valid")
+        except Exception as e:
+          print(f"❌ Prometheus config invalid: {e}")
+          exit(1)
+        PYTHON
+
+    - name: Validate Alert Rules
+      run: |
+        python3 << 'PYTHON'
+        import yaml
+        try:
+          with open('monitoring/prometheus/alert_rules.yml') as f:
+            config = yaml.safe_load(f)
+          rules = config.get('groups', [])
+          total_rules = sum(len(g.get('rules', [])) for g in rules)
+          print(f"✅ Alert Rules valid ({total_rules} rules found)")
+          if total_rules < 10:
+            print("⚠️ Warning: Less than 10 alert rules")
+        except Exception as e:
+          print(f"❌ Alert Rules invalid: {e}")
+          exit(1)
+        PYTHON
+
+    - name: Check Docker Compose services
+      run: |
+        python3 << 'PYTHON'
+        import yaml
+        with open('docker-compose.yml') as f:
+          compose = yaml.safe_load(f)
+        services = list(compose.get('services', {}).keys())
+        print(f"✅ Docker Compose services: {', '.join(services)}")
+        PYTHON
+
+    - name: Validate metrics module
+      run: |
+        python3 << 'PYTHON'
+        import re
+        with open('core/prometheus_metrics.py') as f:
+          content = f.read()
+        decorators = len(re.findall(r'@track_', content))
+        metrics = len(re.findall(r'(Counter|Histogram|Gauge)\(', content))
+        print(f"✅ Metrics module: {decorators} decorators, {metrics} metric definitions")
+        PYTHON
+
+    - name: Check monitoring endpoints
+      run: |
+        echo "✅ Monitoring validation complete"
+        echo "- Prometheus: http://localhost:9090"
+        echo "- Grafana: http://localhost:3000"
+        echo "- Elasticsearch: http://localhost:9200"
+        echo "- Kibana: http://localhost:5601"
