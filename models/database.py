@@ -22,6 +22,7 @@ from supabase import create_client, Client
 from postgrest.exceptions import APIError
 
 from core.config import (
+    SUPABASE_SERVICE_KEY,
     SUPABASE_URL,
     SUPABASE_KEY,
     RESULTS_RETENTION_DAYS,
@@ -58,14 +59,19 @@ class SupabaseClient:
 
     def __init__(self):
         """Initialize Supabase client."""
-        if not SUPABASE_URL or not SUPABASE_KEY:
+        db_key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
+        if not SUPABASE_URL or not db_key:
             raise ValueError(
                 "Supabase credentials not configured. "
-                "Set SUPABASE_URL and SUPABASE_KEY in environment."
+                "Set SUPABASE_URL plus SUPABASE_SERVICE_KEY or SUPABASE_KEY in environment."
             )
 
-        self.client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        logger.info("Supabase client initialized")
+        self.client: Client = create_client(SUPABASE_URL, db_key)
+        self.using_service_role = bool(SUPABASE_SERVICE_KEY)
+        logger.info(
+            "Supabase client initialized with %s key",
+            "service role" if self.using_service_role else "anon",
+        )
 
     # ========================================================================
     # User Operations

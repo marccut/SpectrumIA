@@ -31,7 +31,7 @@ class SpectrumIAAuth:
                 not SUPABASE_URL
                 or not SUPABASE_KEY
                 or "seu-projeto" in SUPABASE_URL
-                or "eyJ" in SUPABASE_KEY
+                or SUPABASE_KEY == "eyJ..."
                 or SUPABASE_URL == "https://seu-projeto.supabase.co"
             )
 

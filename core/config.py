@@ -25,9 +25,13 @@ APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Supabase Configuration
+# Support both legacy and newer variable names to avoid deployment drift.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "") or os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY = (
+    os.getenv("SUPABASE_SERVICE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+)
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "") or os.getenv("DATABASE_URL", "")
 
 # Eye-Tracking Configuration
 GAZE_CALIBRATION_POINTS = int(os.getenv("GAZE_CALIBRATION_POINTS", "9"))
@@ -70,6 +74,11 @@ def validate_config():
     """Validate critical configuration settings."""
     if not SUPABASE_URL:
         print("Warning: SUPABASE_URL not configured. Database features will be unavailable.")
+    elif "dashboard" in SUPABASE_URL or "app.supabase.com" in SUPABASE_URL:
+        raise ValueError(
+            "SUPABASE_URL must be the API URL (https://<project>.supabase.co), "
+            "not a Supabase dashboard URL."
+        )
 
     if not ASSESSMENT_VIDEO_PATH.exists():
         print(f"Warning: Assessment video path does not exist: {ASSESSMENT_VIDEO_PATH}")
