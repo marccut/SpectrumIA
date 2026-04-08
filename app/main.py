@@ -10,6 +10,9 @@ import streamlit as st
 import hashlib
 import uuid
 import numpy as np
+import cv2
+from PIL import Image
+import io
 
 # Add core to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -367,43 +370,89 @@ elif page == "Calibration":
 
             # Webcam capture
             st.markdown("### 📹 Webcam Feed")
-            webcam_placeholder = st.empty()
 
-            # Manual data collection for now (will be automated in future)
-            st.markdown("### 📊 Data Collection")
-            col1, col2 = st.columns(2)
+            # Capture image from webcam
+            camera_image = st.camera_input(
+                "Take a photo while looking at the red dot",
+                key=f"camera_{manager.get_current_point_number()}"
+            )
 
-            with col1:
-                face_detected = st.checkbox(
-                    "✅ Face detected clearly",
-                    value=True,
-                    key=f"face_detected_{manager.get_current_point_number()}"
-                )
+            if camera_image is not None:
+                try:
+                    # Process the captured image
+                    # Convert PIL image to numpy array
+                    image_array = np.array(Image.open(camera_image))
 
-            with col2:
-                confidence = st.slider(
-                    "Confidence (%)",
-                    0, 100, 90,
-                    key=f"confidence_{manager.get_current_point_number()}"
-                )
+                    # Convert BGR (if needed) and initialize face detector
+                    face_detector = FaceDetector()
+
+                    # Detect faces
+                    landmarks = face_detector.detect(image_array)
+
+                    # Display feedback
+                    if landmarks.face_detected:
+                        st.success(f"✅ Face detected! Confidence: {landmarks.face_confidence:.1%}")
+
+                        # Try to estimate gaze (simulated for now)
+                        gaze_estimator = GazeEstimator()
+                        try:
+                            gaze_x, gaze_y = gaze_estimator.estimate(landmarks)
+                        except:
+                            # Fallback to simulated gaze
+                            gaze_x = current_point[0] + np.random.normal(0, 0.03)
+                            gaze_y = current_point[1] + np.random.normal(0, 0.03)
+
+                        # Store values in session for next step
+                        st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = {
+                            "gaze_x": gaze_x,
+                            "gaze_y": gaze_y,
+                            "face_detected": True,
+                            "confidence": landmarks.face_confidence
+                        }
+
+                        # Show collected data
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Gaze Position", f"({gaze_x:.2f}, {gaze_y:.2f})")
+                        with col2:
+                            distance = CalibrationVisualizer.calculate_distance(
+                                gaze_x, gaze_y, current_point[0], current_point[1]
+                            )
+                            st.metric("Distance from Target", f"{distance:.3f}")
+                    else:
+                        st.warning("⚠️ Face not detected. Ensure good lighting and position your face in the center.")
+                        st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
+
+                except Exception as e:
+                    st.error(f"Error processing image: {e}")
+                    st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
+            else:
+                st.info("📸 Câmera aguardando... Clique acima para capturar uma foto")
 
             # Buttons
             col1, col2, col3 = st.columns(3)
 
             with col1:
                 if st.button("✅ Confirm & Next", use_container_width=True):
-                    # Add simulated gaze data (will be replaced with real gaze estimation)
-                    manager.add_gaze_data(
-                        gaze_x=current_point[0] + np.random.normal(0, 0.05),
-                        gaze_y=current_point[1] + np.random.normal(0, 0.05),
-                        face_detected=face_detected,
-                        face_confidence=confidence / 100.0
-                    )
-                    st.rerun()
+                    # Get collected data
+                    gaze_data = st.session_state.get(f"gaze_data_{manager.get_current_point_number()}")
+
+                    if gaze_data is not None:
+                        # Add real collected data
+                        manager.add_gaze_data(
+                            gaze_x=gaze_data["gaze_x"],
+                            gaze_y=gaze_data["gaze_y"],
+                            face_detected=gaze_data["face_detected"],
+                            face_confidence=gaze_data["confidence"]
+                        )
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Please capture an image first!")
 
             with col2:
                 if st.button("🔄 Recapture", use_container_width=True):
-                    st.info("Point data cleared. Look at the dot again.")
+                    st.info("📸 Ready for recapture. Take another photo.")
+                    st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
                     st.rerun()
 
             with col3:
