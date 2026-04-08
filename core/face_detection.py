@@ -7,7 +7,6 @@ Based on MediaPipe Face Mesh (478 landmarks).
 
 import cv2
 import mediapipe as mp
-from mediapipe import solutions
 import numpy as np
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
@@ -68,7 +67,7 @@ class FaceDetector:
             min_detection_confidence: Minimum confidence for detection
             min_tracking_confidence: Minimum confidence for tracking
         """
-        self.mp_face_mesh = solutions.face_mesh
+        self.mp_face_mesh = mp.solutions.face_mesh
 
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=static_image_mode,
