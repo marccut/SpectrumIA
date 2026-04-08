@@ -269,11 +269,18 @@ class FaceDetector:
 
     def release(self):
         """Release MediaPipe resources."""
-        self.face_mesh.close()
+        try:
+            if hasattr(self, 'face_mesh') and self.face_mesh is not None:
+                self.face_mesh.close()
+        except Exception as e:
+            logger.warning(f"Error releasing FaceDetector resources: {e}")
 
     def __del__(self):
         """Cleanup on deletion."""
-        self.release()
+        try:
+            self.release()
+        except Exception as e:
+            logger.warning(f"Error in FaceDetector cleanup: {e}")
 
 
 def visualize_landmarks(
