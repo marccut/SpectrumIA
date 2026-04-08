@@ -86,3 +86,14 @@ Thumbs.db
 sessions/
 results/
 calibration_data/
+data/
+
+# Local working artifacts
+.backup/
+.claude/
+.venv310/
+SpectrumIA-fixed-auth/
+workflow-fixes.patch
+app/pages/*.disabled
+core/*.backup
+Phase8_5_Complete.zip

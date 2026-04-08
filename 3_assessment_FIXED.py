@@ -10,20 +10,27 @@ Integração:
 - Real-time: Gaze visualization e feedback
 """
 
+import sys
+from pathlib import Path
 import streamlit as st
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Optional, List
 import json
 
-from core.face_detection import FaceDetector
-from core.gaze_estimation import GazeEstimator
-from core.feature_extraction import FeatureExtractor
+# Add core to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# All imports FIRST
+from core.auth import get_auth, initialize_session_state as init_auth_state
 from core.config import (
     MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
     MEDIAPIPE_FACE_MESH_MIN_CONFIDENCE,
 )
+from core.face_detection import FaceDetector
+from core.gaze_estimation import GazeEstimator
+from core.feature_extraction import FeatureExtractor
 from models.schemas import (
     AssessmentSessionCreate,
     AssessmentSessionResponse,
@@ -32,6 +39,23 @@ from models.schemas import (
     StimulusRecord,
 )
 from models.database import get_db
+
+# Page config
+st.set_page_config(
+    page_title="SpectrumIA - Assessment",
+    page_icon="📹",
+    layout="wide",
+)
+
+# Initialize auth AFTER imports
+init_auth_state()
+auth = get_auth()
+
+# Check authentication - AFTER all imports
+if not auth.is_authenticated():
+    st.error("❌ Please login first")
+    st.info("Go to **🔐 Login** page to authenticate")
+    st.stop()
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +110,22 @@ def create_assessment_session(
     calibration_id: str
 ) -> Optional[AssessmentSessionResponse]:
     """Create a new assessment session in database."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        # Create a mock session in memory
+        logger.info("Demo mode: Creating mock assessment session")
+        mock_session_id = f"ass_{user_id[:8]}"
+        st.session_state.assessment_session_id = mock_session_id
+        st.session_state.assessment_status = "in_progress"
+        return {
+            'session_id': mock_session_id,
+            'user_id': user_id,
+            'calibration_id': calibration_id,
+            'assessment_type': 'asd_screening'
+        }
+
     try:
         session_data = AssessmentSessionCreate(
             user_id=user_id,
@@ -106,7 +145,13 @@ def create_assessment_session(
 
 def save_gaze_data(session_id: str, gaze_samples: List[GazeDataPoint]) -> bool:
     """Save gaze data to database."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        logger.info(f"Demo mode: Simulating save of {len(gaze_samples)} gaze samples")
+        return True
+
     try:
         if not gaze_samples:
             st.error("Nenhuma amostra de gaze coletada")
@@ -130,7 +175,13 @@ def save_stimulus_metrics(
     gaze_samples: List[GazeDataPoint]
 ) -> bool:
     """Save stimulus metrics to database."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        logger.info(f"Demo mode: Simulating save of metrics for stimulus {stimulus_id}")
+        return True
+
     try:
         # For simplicity, we'll store metrics in the assessment_sessions table
         # In production, you might want a separate gaze_metrics table
@@ -144,34 +195,32 @@ def save_stimulus_metrics(
 
 def collect_gaze_sample(
     gaze_estimator: GazeEstimator,
-    face_landmarks: np.ndarray,
-    camera_matrix: np.ndarray,
+    face_landmarks,
     is_blink: bool = False
 ) -> Optional[GazeDataPoint]:
     """Collect a single gaze sample."""
     try:
-        gaze_point = gaze_estimator.estimate_gaze_point(
-            face_landmarks=face_landmarks,
-            camera_matrix=camera_matrix
-        )
+        if face_landmarks is None or not face_landmarks.face_detected:
+            return None
+
+        # Use the correct method to estimate gaze
+        gaze_point = gaze_estimator.estimate_gaze(face_landmarks)
 
         if gaze_point is None:
             return None
 
-        gaze_x, gaze_y = gaze_point
+        gaze_x, gaze_y = gaze_point.gaze_x, gaze_point.gaze_y
 
-        # Get head pose from face estimator
-        head_pose = gaze_estimator.get_head_pose()
-
+        # Head pose estimation (method not available in GazeEstimator, using defaults)
         sample = GazeDataPoint(
             timestamp=datetime.utcnow().timestamp(),
             gaze_x=gaze_x,
             gaze_y=gaze_y,
-            confidence=gaze_estimator.confidence,
+            confidence=gaze_point.gaze_confidence,
             is_blink=is_blink,
-            head_pitch=head_pose[0] if head_pose else 0.0,
-            head_yaw=head_pose[1] if head_pose else 0.0,
-            head_roll=head_pose[2] if head_pose else 0.0,
+            head_pitch=0.0,  # Default when not available
+            head_yaw=0.0,    # Default when not available
+            head_roll=0.0,   # Default when not available
         )
 
         st.session_state.gaze_samples.append(sample)
@@ -184,7 +233,16 @@ def collect_gaze_sample(
 
 def finish_assessment_session(session_id: str) -> bool:
     """Mark assessment session as completed."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        logger.info("Demo mode: Simulating assessment session completion")
+        st.session_state.assessment_status = "completed"
+        logger.info(f"Demo mode: Assessment completed with {len(st.session_state.gaze_samples)} samples")
+        st.success("✅ Avaliação finalizada com sucesso! (modo demo)")
+        return True
+
     try:
         # Update session status
         updates = {
@@ -363,7 +421,8 @@ def render_assessment_interface():
             from PIL import Image, ImageDraw
             import cv2
 
-            image = Image.fromarray(np.array(camera_input))
+            # st.camera_input returns an UploadedFile, open it directly
+            image = Image.open(camera_input)
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
             # Detect face
@@ -383,8 +442,7 @@ def render_assessment_interface():
                     # Collect gaze sample
                     sample = collect_gaze_sample(
                         gaze_estimator=st.session_state.gaze_estimator,
-                        face_landmarks=landmarks[0],
-                        camera_matrix=camera_matrix,
+                        face_landmarks=faces[0],
                     )
 
                     if sample:
@@ -434,10 +492,37 @@ def render_assessment_interface():
     with col1:
         if st.button("⏭️ Próximo Estímulo", use_container_width=True):
             if st.session_state.gaze_samples:
+                # Ensure feature_extractor is initialized
+                if st.session_state.feature_extractor is None:
+                    try:
+                        st.session_state.feature_extractor = FeatureExtractor()
+                    except Exception as e:
+                        logger.error(f"Error initializing feature extractor: {e}")
+                        st.error("Erro ao inicializar extrator de características")
+                        st.session_state.gaze_samples = []
+                        st.rerun()
+                        return
+
                 # Save metrics for current stimulus
-                metrics = st.session_state.feature_extractor.extract_features(
-                    stimulus_id=stimulus['id']
-                )
+                try:
+                    metrics = st.session_state.feature_extractor.extract_features(
+                        stimulus_id=stimulus['id']
+                    )
+                except Exception as e:
+                    logger.error(f"Error extracting features: {e}")
+                    # Create default metrics on error
+                    metrics = GazeMetricsModel(
+                        stimulus_id=stimulus['id'],
+                        fixation_count=0,
+                        mean_fixation_duration_ms=0.0,
+                        total_gaze_time_ms=0.0,
+                        saccade_count=0,
+                        social_attention_index=0.0,
+                        eye_region_preference=0.0,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    st.warning("Falha ao extrair características, usando valores padrão")
+
                 save_stimulus_metrics(
                     st.session_state.assessment_session_id,
                     stimulus['id'],

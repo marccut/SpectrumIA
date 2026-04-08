@@ -10,6 +10,8 @@ Integração:
 - Clinical: Risk interpretation e recommendations
 """
 
+import sys
+from pathlib import Path
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -17,11 +19,33 @@ from datetime import datetime
 import logging
 from typing import Optional, List
 
+# Add core to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# All imports FIRST
+from core.auth import get_auth, initialize_session_state as init_auth_state
 from models.schemas import (
     AssessmentResultsResponse,
     ScreeningResult,
 )
 from models.database import get_db
+
+# Page config
+st.set_page_config(
+    page_title="SpectrumIA - Results",
+    page_icon="📊",
+    layout="wide",
+)
+
+# Initialize auth AFTER imports
+init_auth_state()
+auth = get_auth()
+
+# Check authentication - AFTER all imports
+if not auth.is_authenticated():
+    st.error("❌ Please login first")
+    st.info("Go to **🔐 Login** page to authenticate")
+    st.stop()
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +84,17 @@ def get_risk_icon(screening_result: ScreeningResult) -> str:
 
 def load_user_results(user_id: str) -> List[AssessmentResultsResponse]:
     """Load all results for a user from database."""
-    db = get_db()
     try:
-        results = db.list_user_results(user_id, limit=50)
-        return results
-    except Exception as e:
-        logger.error(f"Error loading results: {e}")
-        st.error(f"Erro ao carregar resultados: {str(e)}")
+        db = get_db()
+        try:
+            results = db.list_user_results(user_id, limit=50)
+            return results
+        except Exception as e:
+            logger.error(f"Error loading results: {e}")
+            return []
+    except ValueError as e:
+        # Supabase not configured (demo mode)
+        logger.info("Demo mode: Supabase not configured")
         return []
 
 
@@ -230,7 +258,16 @@ def render_results_interface():
                 st.session_state.results_data = selected_result
 
         else:
-            st.info("Nenhuma avaliação disponível")
+            st.info("""
+            📌 **Nenhuma avaliação disponível**
+
+            Em modo demo, não há histórico de avaliações.
+
+            Para gerar resultados:
+            1. Vá para **📍 Calibration** e complete a calibração
+            2. Vá para **📹 Assessment** e complete a avaliação
+            3. Retorne aqui para visualizar os resultados
+            """)
 
         st.divider()
 

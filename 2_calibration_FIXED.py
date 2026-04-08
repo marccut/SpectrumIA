@@ -10,25 +10,49 @@ Integração:
 - Real-time: Validation feedback
 """
 
+import sys
+from pathlib import Path
 import streamlit as st
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Optional, List
 
-from core.face_detection import FaceDetector
-from core.gaze_estimation import GazeEstimator
+# Add core to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# All imports FIRST
+from core.auth import get_auth, initialize_session_state as init_auth_state
 from core.config import (
     GAZE_CALIBRATION_POINTS,
     MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
     MEDIAPIPE_FACE_MESH_MIN_CONFIDENCE,
 )
+from core.face_detection import FaceDetector
+from core.gaze_estimation import GazeEstimator
 from models.schemas import (
     CalibrationPoint,
     CalibrationSessionCreate,
     CalibrationSessionResponse,
 )
 from models.database import get_db
+
+# Page config
+st.set_page_config(
+    page_title="SpectrumIA - Calibration",
+    page_icon="📍",
+    layout="wide",
+)
+
+# Initialize auth AFTER imports
+init_auth_state()
+auth = get_auth()
+
+# Check authentication - AFTER all imports
+if not auth.is_authenticated():
+    st.error("❌ Please login first")
+    st.info("Go to **🔐 Login** page to authenticate")
+    st.stop()
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +103,22 @@ def get_calibration_grid(num_points: int = 9) -> List[tuple]:
 
 def create_calibration_session(user_id: str, num_points: int = 9):
     """Create a new calibration session in database."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        # Create a mock session in memory
+        logger.info("Demo mode: Creating mock calibration session")
+        mock_session_id = f"cal_{user_id[:8]}"
+        st.session_state.calibration_session_id = mock_session_id
+        st.session_state.calibration_id = mock_session_id  # ← Also set calibration_id for Assessment
+        st.session_state.calibration_status = "in_progress"
+        return {
+            'calibration_id': mock_session_id,
+            'num_points': num_points,
+            'calibration_distance_cm': 50.0
+        }
+
     try:
         calibration_data = CalibrationSessionCreate(
             user_id=user_id,
@@ -88,6 +127,7 @@ def create_calibration_session(user_id: str, num_points: int = 9):
         )
         session: CalibrationSessionResponse = db.create_calibration_session(calibration_data)
         st.session_state.calibration_session_id = session.calibration_id
+        st.session_state.calibration_id = session.calibration_id  # ← Also set calibration_id for Assessment
         st.session_state.calibration_status = "in_progress"
         logger.info(f"Calibration session created: {session.calibration_id}")
         return session
@@ -103,8 +143,7 @@ def collect_calibration_sample(
     screen_x: float,
     screen_y: float,
     gaze_estimator: GazeEstimator,
-    face_landmarks: np.ndarray,
-    camera_matrix: np.ndarray,
+    face_landmarks,
 ) -> Optional[CalibrationPoint]:
     """
     Collect a single calibration sample.
@@ -115,23 +154,29 @@ def collect_calibration_sample(
         screen_x: Target X coordinate (0-1)
         screen_y: Target Y coordinate (0-1)
         gaze_estimator: GazeEstimator instance
-        face_landmarks: Face mesh landmarks
-        camera_matrix: Camera intrinsic matrix
+        face_landmarks: FaceLandmarks object
 
     Returns:
         CalibrationPoint if successful, None otherwise
     """
     try:
-        # Estimate gaze point
-        gaze_point = gaze_estimator.estimate_gaze_point(
-            face_landmarks=face_landmarks,
-            camera_matrix=camera_matrix
-        )
-
-        if gaze_point is None:
+        # Validate inputs
+        if face_landmarks is None:
+            logger.error("Invalid face landmarks")
             return None
 
-        gaze_x, gaze_y = gaze_point
+        if not face_landmarks.face_detected:
+            logger.warning("Face not detected in landmarks")
+            return None
+
+        # Estimate gaze point using the correct method
+        gaze_point = gaze_estimator.estimate_gaze(face_landmarks)
+
+        if gaze_point is None:
+            logger.warning(f"Gaze estimation returned None for point {point_index}")
+            return None
+
+        gaze_x, gaze_y = gaze_point.gaze_x, gaze_point.gaze_y
 
         # Create calibration point
         point = CalibrationPoint(
@@ -140,24 +185,48 @@ def collect_calibration_sample(
             screen_y=screen_y,
             gaze_x=gaze_x,
             gaze_y=gaze_y,
-            timestamp=datetime.utcnow().timestamp(),
-            confidence=gaze_estimator.confidence,
+            timestamp=datetime.now(timezone.utc).timestamp(),
+            confidence=gaze_point.gaze_confidence,
             distance_pixels=np.sqrt(
                 (gaze_x - screen_x) ** 2 + (gaze_y - screen_y) ** 2
             ) * 1000,  # Approximate pixels
         )
 
         st.session_state.calibration_points.append(point)
+        logger.info(f"Calibration sample {point_index} collected successfully")
         return point
 
     except Exception as e:
-        logger.error(f"Error collecting calibration sample: {e}")
+        logger.error(f"Error collecting calibration sample: {str(e)}", exc_info=True)
         return None
 
 
 def save_calibration_session(session_id: str) -> bool:
     """Save completed calibration session to database."""
-    db = get_db()
+    try:
+        db = get_db()
+    except ValueError:
+        # Demo mode: Supabase not configured
+        logger.info("Demo mode: Simulating calibration session save")
+        if not st.session_state.calibration_points:
+            st.error("Nenhum ponto de calibração coletado")
+            return False
+
+        # Calculate and display metrics even in demo mode
+        points = st.session_state.calibration_points
+        distances = [p.distance_pixels for p in points]
+        mean_error = float(np.mean(distances)) if distances else 0.0
+
+        # ✅ SYNC SESSION STATE - Critical for assessment to recognize calibration
+        st.session_state.calibration_status = "completed"
+        st.session_state.calibration_id = session_id
+        st.session_state.active_calibration_id = session_id
+        st.session_state.is_calibrated = True
+
+        logger.info(f"Demo mode: Calibration saved with mean error {mean_error:.1f}px")
+        st.success("✅ Calibração salva com sucesso! (modo demo)")
+        return True
+
     try:
         if not st.session_state.calibration_points:
             st.error("Nenhum ponto de calibração coletado")
@@ -180,12 +249,18 @@ def save_calibration_session(session_id: str) -> bool:
             "mean_error_pixels": mean_error,
             "max_error_pixels": max_error,
             "validity_score": validity_score,
-            "completed_at": datetime.utcnow().isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
         }
 
         session = db.update_calibration_session(session_id, updates)
         logger.info(f"Calibration session saved: {session_id}")
+
+        # ✅ SYNC SESSION STATE - Critical for assessment to recognize calibration
         st.session_state.calibration_status = "completed"
+        st.session_state.calibration_id = session_id
+        st.session_state.active_calibration_id = session_id
+        st.session_state.is_calibrated = True
+
         return True
 
     except Exception as e:
@@ -284,7 +359,8 @@ def render_calibration_interface():
     if st.session_state.face_detector is None:
         try:
             st.session_state.face_detector = FaceDetector(
-                confidence_threshold=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE
+                min_detection_confidence=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
+                min_tracking_confidence=MEDIAPIPE_FACE_MESH_MIN_CONFIDENCE,
             )
             st.session_state.gaze_estimator = GazeEstimator()
             st.info("✅ Detectores de rosto e estimador de gaze carregados")
@@ -305,7 +381,8 @@ def render_calibration_interface():
             from PIL import Image
             import cv2
 
-            image = Image.fromarray(np.array(camera_input))
+            # st.camera_input returns an UploadedFile, open it directly
+            image = Image.open(camera_input)
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
             # Detect face
@@ -370,8 +447,7 @@ def render_calibration_interface():
                                 screen_x=target_x,
                                 screen_y=target_y,
                                 gaze_estimator=st.session_state.gaze_estimator,
-                                face_landmarks=landmarks[0],
-                                camera_matrix=camera_matrix,
+                                face_landmarks=faces[0],
                             )
 
                             if sample:
@@ -382,10 +458,12 @@ def render_calibration_interface():
                                 st.session_state.current_calibration_index += 1
                                 st.rerun()
                             else:
-                                st.error("❌ Falha ao coletar amostra")
+                                st.error("❌ Falha ao coletar amostra. Verifique o console para detalhes.")
+                                st.info("💡 Dica: Certifique-se de que o rosto está bem visível e a câmera está clara.")
 
                         except Exception as e:
-                            st.error(f"Erro: {str(e)}")
+                            st.error(f"❌ Erro ao coletar amostra: {str(e)}")
+                            logger.exception(f"Exception during sample collection: {e}")
 
             else:
                 st.warning("⚠️ Nenhum rosto detectado. Ajuste a posição.")
