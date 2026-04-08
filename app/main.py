@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit as st
 import hashlib
 import uuid
+import numpy as np
 
 # Add core to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -305,7 +306,14 @@ if page == "Home":
 elif page == "Calibration":
     st.header("📍 Gaze Calibration")
 
-    # Track calibration status in this session
+    # Import calibration module
+    from core.calibration import CalibrationManager, CalibrationVisualizer
+    from core.face_detection import FaceDetector
+    from core.gaze_estimation import GazeEstimator
+
+    # Initialize calibration manager if not exists
+    if "calibration_manager" not in st.session_state:
+        st.session_state.calibration_manager = CalibrationManager()
     if "calibration_status" not in st.session_state:
         st.session_state.calibration_status = "not_started"
 
@@ -321,41 +329,138 @@ elif page == "Calibration":
     1. Position yourself 60-80 cm from the screen
     2. Ensure adequate lighting on your face
     3. Keep your head relatively still during calibration
-    4. Follow the calibration points with your eyes (not your head)
+    4. Follow the red calibration points with your eyes (not your head)
+    5. Look at each point for 2-3 seconds before clicking "Next"
     """)
 
     # Show button if not in progress or completed
     if st.session_state.calibration_status == "not_started":
         if st.button("▶️ Start Calibration", key="calibration_btn", use_container_width=True):
             st.session_state.calibration_status = "in_progress"
-            st.session_state.calibration_complete = True
+            st.session_state.calibration_manager.reset()
             st.rerun()
 
-    # Show progress if in calibration
+    # Show calibration interface
     elif st.session_state.calibration_status == "in_progress":
-        st.info("📹 Calibration interface would load here in the next phase of development.")
-        st.info("In development: 9-point gaze calibration with real-time feedback")
+        manager = st.session_state.calibration_manager
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✅ Complete Calibration", use_container_width=True):
-                st.session_state.calibration_status = "completed"
-                st.session_state.calibration_complete = True
-                st.rerun()
-        with col2:
-            if st.button("❌ Cancel", use_container_width=True):
-                st.session_state.calibration_status = "not_started"
-                st.session_state.calibration_complete = False
-                st.rerun()
+        # Display current point
+        current_point = manager.get_next_point()
+        progress = manager.get_progress()
+
+        st.progress(progress / 100, text=f"Progress: {int(progress)}% ({manager.get_current_point_number()}/9)")
+
+        if current_point and not manager.is_complete():
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # Display calibration point on screen
+                st.markdown(f"""
+                <div style='text-align: center; padding: 40px; background-color: #f0f0f0; border-radius: 10px;'>
+                    <h2>🔴 Look at the red dot</h2>
+                    <p>Point {manager.get_current_point_number()} of 9</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.metric("Position", f"({current_point[0]:.1%}, {current_point[1]:.1%})")
+
+            # Webcam capture
+            st.markdown("### 📹 Webcam Feed")
+            webcam_placeholder = st.empty()
+
+            # Manual data collection for now (will be automated in future)
+            st.markdown("### 📊 Data Collection")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                face_detected = st.checkbox(
+                    "✅ Face detected clearly",
+                    value=True,
+                    key=f"face_detected_{manager.get_current_point_number()}"
+                )
+
+            with col2:
+                confidence = st.slider(
+                    "Confidence (%)",
+                    0, 100, 90,
+                    key=f"confidence_{manager.get_current_point_number()}"
+                )
+
+            # Buttons
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if st.button("✅ Confirm & Next", use_container_width=True):
+                    # Add simulated gaze data (will be replaced with real gaze estimation)
+                    manager.add_gaze_data(
+                        gaze_x=current_point[0] + np.random.normal(0, 0.05),
+                        gaze_y=current_point[1] + np.random.normal(0, 0.05),
+                        face_detected=face_detected,
+                        face_confidence=confidence / 100.0
+                    )
+                    st.rerun()
+
+            with col2:
+                if st.button("🔄 Recapture", use_container_width=True):
+                    st.info("Point data cleared. Look at the dot again.")
+                    st.rerun()
+
+            with col3:
+                if st.button("❌ Cancel", use_container_width=True):
+                    st.session_state.calibration_status = "not_started"
+                    st.session_state.calibration_manager.reset()
+                    st.rerun()
+
+            # Accuracy info
+            st.info(f"📊 Detection Accuracy: {manager.get_accuracy():.1f}%")
+
+        else:
+            # Calibration complete
+            st.success("✅ All 9 calibration points collected!")
+
+            calibration_data = manager.calibration_data
+            accuracy = calibration_data.get_accuracy()
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Points Collected", len(calibration_data.points))
+            with col2:
+                st.metric("Detection Rate", f"{accuracy:.1f}%")
+            with col3:
+                st.metric("Quality", "VALID ✅" if calibration_data.is_valid() else "RETRY ⚠️")
+
+            # Summary
+            st.markdown("### 📈 Calibration Summary")
+            st.dataframe({
+                "Point": [p.point_id + 1 for p in calibration_data.points],
+                "Target": [f"({p.screen_x:.1%}, {p.screen_y:.1%})" for p in calibration_data.points],
+                "Detected": [p.face_detected for p in calibration_data.points],
+                "Confidence": [f"{p.face_confidence:.1%}" for p in calibration_data.points],
+            })
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Save & Continue", use_container_width=True):
+                    st.session_state.calibration_status = "completed"
+                    st.session_state.calibration_complete = True
+                    st.rerun()
+
+            with col2:
+                if st.button("🔄 Redo All Points", use_container_width=True):
+                    st.session_state.calibration_manager.reset()
+                    st.rerun()
 
     # Show completion message
     if st.session_state.calibration_status == "completed":
         st.success("✅ Calibration completed successfully!")
         st.info("You can now proceed to the Assessment page.")
+        st.balloons()
 
         if st.button("🔄 Redo Calibration", key="redo_calibration_btn", use_container_width=True):
             st.session_state.calibration_status = "not_started"
             st.session_state.calibration_complete = False
+            st.session_state.calibration_manager.reset()
             st.rerun()
 
 elif page == "Assessment":
