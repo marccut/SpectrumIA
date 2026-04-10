@@ -16,7 +16,7 @@ from datetime import datetime
 import logging
 from typing import Optional, List
 
-from core.face_detection import FaceDetector
+from core.face_detection import FaceDetector, FaceLandmarks
 from core.gaze_estimation import GazeEstimator
 from core.config import (
     GAZE_CALIBRATION_POINTS,
@@ -103,8 +103,7 @@ def collect_calibration_sample(
     screen_x: float,
     screen_y: float,
     gaze_estimator: GazeEstimator,
-    face_landmarks: np.ndarray,
-    camera_matrix: np.ndarray,
+    face_landmarks: FaceLandmarks,
 ) -> Optional[CalibrationPoint]:
     """
     Collect a single calibration sample.
@@ -115,23 +114,20 @@ def collect_calibration_sample(
         screen_x: Target X coordinate (0-1)
         screen_y: Target Y coordinate (0-1)
         gaze_estimator: GazeEstimator instance
-        face_landmarks: Face mesh landmarks
-        camera_matrix: Camera intrinsic matrix
+        face_landmarks: FaceLandmarks object from FaceDetector.detect()
 
     Returns:
         CalibrationPoint if successful, None otherwise
     """
     try:
         # Estimate gaze point
-        gaze_point = gaze_estimator.estimate_gaze_point(
-            face_landmarks=face_landmarks,
-            camera_matrix=camera_matrix
-        )
+        gaze_point = gaze_estimator.estimate_gaze(face_landmarks=face_landmarks)
 
-        if gaze_point is None:
+        if gaze_point.gaze_confidence == 0.0:
             return None
 
-        gaze_x, gaze_y = gaze_point
+        gaze_x = gaze_point.gaze_x
+        gaze_y = gaze_point.gaze_y
 
         # Create calibration point
         point = CalibrationPoint(
@@ -141,7 +137,7 @@ def collect_calibration_sample(
             gaze_x=gaze_x,
             gaze_y=gaze_y,
             timestamp=datetime.utcnow().timestamp(),
-            confidence=gaze_estimator.confidence,
+            confidence=gaze_point.gaze_confidence,
             distance_pixels=np.sqrt(
                 (gaze_x - screen_x) ** 2 + (gaze_y - screen_y) ** 2
             ) * 1000,  # Approximate pixels
@@ -284,7 +280,7 @@ def render_calibration_interface():
     if st.session_state.face_detector is None:
         try:
             st.session_state.face_detector = FaceDetector(
-                confidence_threshold=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE
+                min_detection_confidence=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE
             )
             st.session_state.gaze_estimator = GazeEstimator()
             st.info("✅ Detectores de rosto e estimador de gaze carregados")
@@ -309,9 +305,9 @@ def render_calibration_interface():
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
             # Detect face
-            faces, landmarks = st.session_state.face_detector.detect(image_cv)
+            face_list = st.session_state.face_detector.detect(image_cv)
 
-            if faces and landmarks:
+            if face_list:
                 st.success(f"✅ Rosto detectado")
 
                 # Show current calibration point
@@ -355,23 +351,13 @@ def render_calibration_interface():
                         use_container_width=True,
                     ):
                         try:
-                            # Get camera matrix (simplified)
-                            h, w = image_cv.shape[:2]
-                            focal_length = w
-                            camera_matrix = np.array(
-                                [[focal_length, 0, w / 2],
-                                 [0, focal_length, h / 2],
-                                 [0, 0, 1]]
-                            )
-
                             sample = collect_calibration_sample(
                                 session_id=st.session_state.calibration_session_id,
                                 point_index=current_idx,
                                 screen_x=target_x,
                                 screen_y=target_y,
                                 gaze_estimator=st.session_state.gaze_estimator,
-                                face_landmarks=landmarks[0],
-                                camera_matrix=camera_matrix,
+                                face_landmarks=face_list[0],
                             )
 
                             if sample:

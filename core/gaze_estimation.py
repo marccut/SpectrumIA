@@ -67,6 +67,9 @@ class GazeEstimator:
         self.blink_counter = 0
         self.previous_eye_aspect_ratio = 0.5
 
+        # Shared FaceDetector instance (avoids repeated instantiation)
+        self._face_detector = FaceDetector()
+
     def estimate_gaze(
         self,
         face_landmarks: FaceLandmarks,
@@ -93,8 +96,8 @@ class GazeEstimator:
             self.screen_height = screen_height
 
         # Get eye landmarks
-        left_eye, right_eye = FaceDetector().get_eye_landmarks(face_landmarks)
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        left_eye, right_eye = self._face_detector.get_eye_landmarks(face_landmarks)
+        iris_left, iris_right = self._face_detector.get_iris_center(face_landmarks)
 
         # Calculate eye aspect ratios
         left_ear = self._calculate_eye_aspect_ratio(left_eye)
@@ -279,7 +282,7 @@ class GazeEstimator:
             self.calibration_samples[key] = []
 
         # Store iris positions and screen point
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        iris_left, iris_right = self._face_detector.get_iris_center(face_landmarks)
         self.calibration_samples[key].append(
             {
                 "screen_point": screen_point,
@@ -292,6 +295,18 @@ class GazeEstimator:
     def clear_calibration(self) -> None:
         """Clear calibration data."""
         self.calibration_samples = {}
+
+    def get_head_pose(self, face_landmarks: "FaceLandmarks") -> Tuple[float, float, float]:
+        """
+        Get head pose (pitch, yaw, roll) from face landmarks.
+
+        Args:
+            face_landmarks: FaceLandmarks object
+
+        Returns:
+            Tuple of (pitch, yaw, roll) in degrees
+        """
+        return self._face_detector.calculate_head_pose(face_landmarks)
 
     def get_calibration_samples_count(self) -> int:
         """Get number of calibration samples collected."""
@@ -329,7 +344,8 @@ def visualize_gaze(
 
     # Draw iris center and ray
     if face_landmarks.face_detected and draw_gaze_ray:
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        _detector = FaceDetector()
+        iris_left, iris_right = _detector.get_iris_center(face_landmarks)
         iris_center = (iris_left + iris_right) / 2
         iris_pixel = tuple(iris_center.astype(int))
 
