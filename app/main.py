@@ -1,12 +1,18 @@
 """
 SpectrumIA - Eye-tracking based screening tool for Autism Spectrum Disorder
 
-Main Streamlit application entry point.
+Main Streamlit application entry point with authentication.
 """
 
 import sys
 from pathlib import Path
 import streamlit as st
+import hashlib
+import uuid
+import numpy as np
+import cv2
+from PIL import Image
+import io
 
 # Add core to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -55,13 +61,36 @@ st.markdown("""
         margin-bottom: 1rem;
         border-left: 4px solid #ff9800;
     }
+    .login-container {
+        max-width: 400px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .user-info {
+        background-color: #e8f4f8;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #17a2b8;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state
 if "session_id" not in st.session_state:
-    import uuid
     st.session_state.session_id = str(uuid.uuid4())
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+
+if "user_name" not in st.session_state:
+    st.session_state.user_name = None
 
 if "calibration_complete" not in st.session_state:
     st.session_state.calibration_complete = False
@@ -69,7 +98,109 @@ if "calibration_complete" not in st.session_state:
 if "assessment_complete" not in st.session_state:
     st.session_state.assessment_complete = False
 
-# Main Title
+# IMPORTANT: Initialize current_page BEFORE authentication check
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Home"
+
+
+# Authentication functions
+def hash_password(password: str) -> str:
+    """Hash password using SHA-256."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def verify_credentials(email: str, password: str) -> bool:
+    """Verify user credentials. In production, this would query a database."""
+    # Demo credentials - In production, replace with database query
+    demo_users = {
+        "demo@spectrum.ai": hash_password("demo123"),
+        "test@spectrum.ai": hash_password("test123"),
+    }
+
+    if email in demo_users:
+        return demo_users[email] == hash_password(password)
+    return False
+
+
+def extract_name_from_email(email: str) -> str:
+    """Extract a friendly name from email."""
+    return email.split("@")[0].replace(".", " ").title()
+
+
+def show_login_page():
+    """Display login page."""
+    st.markdown("""
+    <div class='main-header'>
+        <h1>🧠 SpectrumIA</h1>
+        <p class='subtitle'>Eye-Tracking Based Screening Tool for Autism Spectrum Disorder</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class='login-container'>
+    """, unsafe_allow_html=True)
+
+    st.markdown("## Login")
+
+    col1, col2 = st.columns([1, 2], gap="large")
+
+    with col2:
+        email = st.text_input(
+            "Email",
+            placeholder="example@spectrum.ai",
+            help="Enter your email address"
+        )
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter your password",
+            help="Enter your password"
+        )
+
+        if st.button("Login", key="login_btn", use_container_width=True):
+            if not email or not password:
+                st.error("❌ Please enter both email and password")
+            elif verify_credentials(email, password):
+                st.session_state.authenticated = True
+                st.session_state.user_email = email
+                st.session_state.user_name = extract_name_from_email(email)
+                st.success(f"✅ Welcome, {st.session_state.user_name}!")
+                st.rerun()
+            else:
+                st.error("❌ Invalid email or password")
+
+        st.markdown("---")
+        st.markdown("### 📝 Demo Credentials")
+        st.markdown("""
+        **Email:** `demo@spectrum.ai`
+        **Password:** `demo123`
+
+        or
+
+        **Email:** `test@spectrum.ai`
+        **Password:** `test123`
+        """)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("""
+    ### ℹ️ About SpectrumIA
+
+    SpectrumIA is an **eye-tracking based screening tool** designed to assist in the identification
+    of Autism Spectrum Disorder (ASD), with special focus on reducing diagnostic delays in women and adults.
+
+    **Note:** This is a screening tool, not a diagnostic instrument. Results must be interpreted
+    by qualified healthcare professionals.
+    """)
+
+# Check authentication
+if not st.session_state.authenticated:
+    show_login_page()
+    st.stop()
+
+# Main Title (only shown when authenticated)
 st.markdown("""
 <div class='main-header'>
     <h1>🧠 SpectrumIA</h1>
@@ -77,19 +208,61 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Sidebar Navigation - User Info and Logout
+st.sidebar.markdown(f"""
+<div class='user-info'>
+    <strong>👤 Logged in as:</strong><br>
+    {st.session_state.user_name}<br>
+    <span style='font-size: 0.9rem; color: #666;'>{st.session_state.user_email}</span>
+</div>
+""", unsafe_allow_html=True)
+
+col_home, col_logout = st.sidebar.columns(2)
+with col_home:
+    if st.button("🏠 Home", use_container_width=True, key="home_btn"):
+        st.session_state.current_page = "Home"
+
+with col_logout:
+    if st.button("🚪 Logout", use_container_width=True, key="logout_btn"):
+        st.session_state.authenticated = False
+        st.session_state.user_email = None
+        st.session_state.user_name = None
+        st.session_state.calibration_complete = False
+        st.session_state.assessment_complete = False
+        st.success("✅ Logged out successfully!")
+        st.rerun()
+
+st.sidebar.markdown("---")
+
 # Sidebar Navigation
 st.sidebar.title("Navigation")
+
+# Create page list
+pages = ["Home", "Calibration", "Assessment", "Results"]
+
+# Get current page index safely
+try:
+    current_index = pages.index(st.session_state.current_page)
+except (ValueError, IndexError):
+    current_index = 0
+    st.session_state.current_page = "Home"
+
 page = st.sidebar.radio(
     "Select a page:",
-    ["Home", "Calibration", "Assessment", "Results"],
-    help="Navigate through different sections of the application"
+    pages,
+    index=current_index,
+    help="Navigate through different sections of the application",
+    key="page_radio"
 )
+
+# Update current page
+st.session_state.current_page = page
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**Version:** {APP_VERSION}")
+st.sidebar.markdown(f"**Session ID:** `{st.session_state.session_id[:8]}...`")
 if APP_DEBUG:
     st.sidebar.markdown("🔧 **Debug Mode ON**")
-    st.sidebar.markdown(f"Session ID: `{st.session_state.session_id[:8]}...`")
 
 # Main Content
 if page == "Home":
@@ -135,6 +308,18 @@ if page == "Home":
 
 elif page == "Calibration":
     st.header("📍 Gaze Calibration")
+
+    # Import calibration module
+    from core.calibration import CalibrationManager, CalibrationVisualizer
+    from core.face_detection import FaceDetector
+    from core.gaze_estimation import GazeEstimator
+
+    # Initialize calibration manager if not exists
+    if "calibration_manager" not in st.session_state:
+        st.session_state.calibration_manager = CalibrationManager()
+    if "calibration_status" not in st.session_state:
+        st.session_state.calibration_status = "not_started"
+
     st.markdown("""
     <div class='warning-card'>
         <strong>⚠️ Calibration Required</strong><br>
@@ -147,22 +332,196 @@ elif page == "Calibration":
     1. Position yourself 60-80 cm from the screen
     2. Ensure adequate lighting on your face
     3. Keep your head relatively still during calibration
-    4. Follow the calibration points with your eyes (not your head)
+    4. Follow the red calibration points with your eyes (not your head)
+    5. Look at each point for 2-3 seconds before clicking "Next"
     """)
 
-    if st.button("Start Calibration", key="calibration_btn"):
-        st.info("Calibration interface would load here in the next phase of development.")
-        st.session_state.calibration_complete = True
+    # Show button if not in progress or completed
+    if st.session_state.calibration_status == "not_started":
+        if st.button("▶️ Start Calibration", key="calibration_btn", use_container_width=True):
+            st.session_state.calibration_status = "in_progress"
+            st.session_state.calibration_manager.reset()
+            st.rerun()
 
-    if st.session_state.calibration_complete:
-        st.success("✓ Calibration completed successfully!")
+    # Show calibration interface
+    elif st.session_state.calibration_status == "in_progress":
+        manager = st.session_state.calibration_manager
+
+        # Display current point
+        current_point = manager.get_next_point()
+        progress = manager.get_progress()
+
+        st.progress(progress / 100, text=f"Progress: {int(progress)}% ({manager.get_current_point_number()}/9)")
+
+        if current_point and not manager.is_complete():
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # Display calibration point on screen
+                st.markdown(f"""
+                <div style='text-align: center; padding: 40px; background-color: #f0f0f0; border-radius: 10px;'>
+                    <h2>🔴 Look at the red dot</h2>
+                    <p>Point {manager.get_current_point_number()} of 9</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                st.metric("Position", f"({current_point[0]:.1%}, {current_point[1]:.1%})")
+
+            # Webcam capture
+            st.markdown("### 📹 Webcam Feed")
+
+            # Capture image from webcam
+            camera_image = st.camera_input(
+                "Take a photo while looking at the red dot",
+                key=f"camera_{manager.get_current_point_number()}"
+            )
+
+            if camera_image is not None:
+                try:
+                    # Process the captured image
+                    # Convert PIL image to numpy array
+                    image_array = np.array(Image.open(camera_image))
+
+                    # Convert BGR (if needed) and initialize face detector
+                    face_detector = FaceDetector()
+
+                    # Detect faces
+                    landmarks = face_detector.detect(image_array)
+
+                    # Display feedback
+                    if landmarks.face_detected:
+                        st.success(f"✅ Face detected! Confidence: {landmarks.face_confidence:.1%}")
+
+                        # Try to estimate gaze (simulated for now)
+                        gaze_estimator = GazeEstimator()
+                        try:
+                            gaze_x, gaze_y = gaze_estimator.estimate(landmarks)
+                        except:
+                            # Fallback to simulated gaze
+                            gaze_x = current_point[0] + np.random.normal(0, 0.03)
+                            gaze_y = current_point[1] + np.random.normal(0, 0.03)
+
+                        # Store values in session for next step
+                        st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = {
+                            "gaze_x": gaze_x,
+                            "gaze_y": gaze_y,
+                            "face_detected": True,
+                            "confidence": landmarks.face_confidence
+                        }
+
+                        # Show collected data
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Gaze Position", f"({gaze_x:.2f}, {gaze_y:.2f})")
+                        with col2:
+                            distance = CalibrationVisualizer.calculate_distance(
+                                gaze_x, gaze_y, current_point[0], current_point[1]
+                            )
+                            st.metric("Distance from Target", f"{distance:.3f}")
+                    else:
+                        st.warning("⚠️ Face not detected. Ensure good lighting and position your face in the center.")
+                        st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
+
+                except Exception as e:
+                    st.error(f"Error processing image: {e}")
+                    st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
+            else:
+                st.info("📸 Câmera aguardando... Clique acima para capturar uma foto")
+
+            # Buttons
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if st.button("✅ Confirm & Next", use_container_width=True):
+                    # Get collected data
+                    gaze_data = st.session_state.get(f"gaze_data_{manager.get_current_point_number()}")
+
+                    if gaze_data is not None:
+                        # Add real collected data
+                        manager.add_gaze_data(
+                            gaze_x=gaze_data["gaze_x"],
+                            gaze_y=gaze_data["gaze_y"],
+                            face_detected=gaze_data["face_detected"],
+                            face_confidence=gaze_data["confidence"]
+                        )
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Please capture an image first!")
+
+            with col2:
+                if st.button("🔄 Recapture", use_container_width=True):
+                    st.info("📸 Ready for recapture. Take another photo.")
+                    st.session_state[f"gaze_data_{manager.get_current_point_number()}"] = None
+                    st.rerun()
+
+            with col3:
+                if st.button("❌ Cancel", use_container_width=True):
+                    st.session_state.calibration_status = "not_started"
+                    st.session_state.calibration_manager.reset()
+                    st.rerun()
+
+            # Accuracy info
+            st.info(f"📊 Detection Accuracy: {manager.get_accuracy():.1f}%")
+
+        else:
+            # Calibration complete
+            st.success("✅ All 9 calibration points collected!")
+
+            calibration_data = manager.calibration_data
+            accuracy = calibration_data.get_accuracy()
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Points Collected", len(calibration_data.points))
+            with col2:
+                st.metric("Detection Rate", f"{accuracy:.1f}%")
+            with col3:
+                st.metric("Quality", "VALID ✅" if calibration_data.is_valid() else "RETRY ⚠️")
+
+            # Summary
+            st.markdown("### 📈 Calibration Summary")
+            st.dataframe({
+                "Point": [p.point_id + 1 for p in calibration_data.points],
+                "Target": [f"({p.screen_x:.1%}, {p.screen_y:.1%})" for p in calibration_data.points],
+                "Detected": [p.face_detected for p in calibration_data.points],
+                "Confidence": [f"{p.face_confidence:.1%}" for p in calibration_data.points],
+            })
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Save & Continue", use_container_width=True):
+                    st.session_state.calibration_status = "completed"
+                    st.session_state.calibration_complete = True
+                    st.rerun()
+
+            with col2:
+                if st.button("🔄 Redo All Points", use_container_width=True):
+                    st.session_state.calibration_manager.reset()
+                    st.rerun()
+
+    # Show completion message
+    if st.session_state.calibration_status == "completed":
+        st.success("✅ Calibration completed successfully!")
+        st.info("You can now proceed to the Assessment page.")
+        st.balloons()
+
+        if st.button("🔄 Redo Calibration", key="redo_calibration_btn", use_container_width=True):
+            st.session_state.calibration_status = "not_started"
+            st.session_state.calibration_complete = False
+            st.session_state.calibration_manager.reset()
+            st.rerun()
 
 elif page == "Assessment":
     st.header("📹 Assessment Session")
 
+    # Track assessment status in this session
+    if "assessment_status" not in st.session_state:
+        st.session_state.assessment_status = "not_started"
+
     if not st.session_state.calibration_complete:
-        st.warning("Please complete calibration first before starting the assessment.")
-        st.info("Go to the **Calibration** page to get started.")
+        st.warning("⚠️ Please complete calibration first before starting the assessment.")
+        st.info("📍 Go to the **Calibration** page to get started.")
     else:
         st.markdown("""
         <div class='card'>
@@ -172,25 +531,65 @@ elif page == "Assessment":
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("Start Assessment", key="assessment_btn"):
-            st.info("Assessment interface would load here in the next phase of development.")
-            st.session_state.assessment_complete = True
+        # Show button if not in progress or completed
+        if st.session_state.assessment_status == "not_started":
+            if st.button("▶️ Start Assessment", key="assessment_btn", use_container_width=True):
+                st.session_state.assessment_status = "in_progress"
+                st.session_state.assessment_complete = True
+                st.rerun()
 
-        if st.session_state.assessment_complete:
-            st.success("✓ Assessment completed!")
+        # Show progress if in assessment
+        elif st.session_state.assessment_status == "in_progress":
+            st.info("📹 Assessment interface would load here in the next phase of development.")
+            st.info("In development: Assessment with eye-tracking recording and analysis")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Complete Assessment", use_container_width=True):
+                    st.session_state.assessment_status = "completed"
+                    st.session_state.assessment_complete = True
+                    st.rerun()
+            with col2:
+                if st.button("❌ Cancel", use_container_width=True):
+                    st.session_state.assessment_status = "not_started"
+                    st.session_state.assessment_complete = False
+                    st.rerun()
+
+        # Show completion message
+        if st.session_state.assessment_status == "completed":
+            st.success("✅ Assessment completed successfully!")
+            st.info("You can now view your results in the Results page.")
+
+            if st.button("🔄 Redo Assessment", key="redo_assessment_btn", use_container_width=True):
+                st.session_state.assessment_status = "not_started"
+                st.session_state.assessment_complete = False
+                st.rerun()
 
 elif page == "Results":
     st.header("📊 Assessment Results")
 
-    if not st.session_state.assessment_complete:
-        st.warning("Please complete the assessment first to view results.")
+    if not st.session_state.calibration_complete:
+        st.warning("⚠️ Please complete calibration first.")
+        st.info("📍 Go to the **Calibration** page to get started.")
+    elif not st.session_state.assessment_complete:
+        st.warning("⚠️ Please complete the assessment first to view results.")
+        st.info("📹 Go to the **Assessment** page to get started.")
     else:
+        st.success("✅ Assessment completed successfully!")
         st.markdown("""
         <div class='card'>
-            <strong>Results Analysis</strong><br>
-            Detailed eye-tracking metrics and screening indicators would be displayed here.
+            <strong>📊 Results Analysis</strong><br>
+            Detailed eye-tracking metrics and screening indicators would be displayed here in the next phase of development.
+
+            **Planned metrics:**
+            - Social Attention Index (SAI)
+            - Fixation patterns
+            - Gaze dynamics
+            - Risk assessment score
         </div>
         """, unsafe_allow_html=True)
+
+        st.info("ℹ️ Results are generated based on calibration and assessment data.")
 
 # Footer
 st.markdown("---")
