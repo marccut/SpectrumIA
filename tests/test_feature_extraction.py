@@ -247,18 +247,16 @@ class TestFixationDetection:
     def test_fixation_metrics_model_validation(self):
         """Test FixationMetricsModel data validation."""
         metrics = FixationMetricsModel(
-            fixation_count=5,
-            mean_fixation_duration_ms=250.5,
-            std_fixation_duration_ms=45.2,
-            min_fixation_duration_ms=180.0,
-            max_fixation_duration_ms=320.0,
-            total_fixation_time_ms=1252.5,
-            mean_fixation_dispersion_deg=1.5,
+            count=5,
+            mean_duration_ms=250.5,
+            std_duration_ms=45.2,
+            min_duration_ms=180.0,
+            max_duration_ms=320.0,
+            total_duration_ms=1252.5,
         )
 
-        assert metrics.fixation_count == 5
-        assert metrics.mean_fixation_duration_ms > 0
-        assert metrics.mean_fixation_dispersion_deg > 0
+        assert metrics.count == 5
+        assert metrics.mean_duration_ms > 0
 
 
 # ========================================================================
@@ -324,18 +322,15 @@ class TestSaccadeDetection:
     def test_saccade_metrics_model(self):
         """Test SaccadeMetricsModel validation."""
         metrics = SaccadeMetricsModel(
-            saccade_count=12,
-            mean_saccade_amplitude_deg=8.5,
-            std_saccade_amplitude_deg=2.1,
-            min_saccade_amplitude_deg=3.2,
-            max_saccade_amplitude_deg=14.5,
-            mean_saccade_velocity_deg_per_sec=220.0,
-            mean_saccade_peak_velocity_deg_per_sec=350.0,
+            count=12,
+            mean_amplitude_deg=8.5,
+            mean_velocity_deg_per_sec=220.0,
+            mean_peak_velocity_deg_per_sec=350.0,
         )
 
-        assert metrics.saccade_count > 0
-        assert metrics.mean_saccade_amplitude_deg > 0
-        assert metrics.mean_saccade_velocity_deg_per_sec > 0
+        assert metrics.count > 0
+        assert metrics.mean_amplitude_deg > 0
+        assert metrics.mean_velocity_deg_per_sec > 0
 
 
 # ========================================================================
@@ -426,20 +421,13 @@ class TestSocialAttention:
     def test_social_attention_metrics_model(self):
         """Test SocialAttentionMetricsModel validation."""
         metrics = SocialAttentionMetricsModel(
-            mean_social_attention_index=0.72,
-            std_social_attention_index=0.08,
-            mean_eye_preference=0.68,
-            mean_mouth_preference=0.15,
-            mean_nose_preference=0.04,
-            mean_geometric_preference=0.13,
-            social_to_geometric_ratio=5.5,
-            aoi_transitions_per_second=2.3,
-            mean_time_to_social_fixation_ms=450.0,
+            social_attention_index=0.72,
+            eye_preference=0.68,
+            mouth_preference=0.15,
         )
 
-        assert 0 <= metrics.mean_social_attention_index <= 1
-        assert metrics.mean_eye_preference > metrics.mean_mouth_preference
-        assert metrics.social_to_geometric_ratio > 0
+        assert 0 <= metrics.social_attention_index <= 1
+        assert metrics.eye_preference > metrics.mouth_preference
 
 
 # ========================================================================
@@ -518,16 +506,13 @@ class TestScanpath:
     def test_scanpath_metrics_model(self):
         """Test ScanpathMetricsModel validation."""
         metrics = ScanpathMetricsModel(
-            mean_scanpath_entropy=0.58,
-            std_scanpath_entropy=0.12,
-            fixation_density_per_area=0.42,
-            mean_path_length_deg=285.5,
-            path_efficiency_ratio=0.68,
+            entropy=0.58,
+            fixation_density=0.42,
+            path_length_deg=285.5,
         )
 
-        assert 0 <= metrics.mean_scanpath_entropy <= 1
-        assert 0 <= metrics.fixation_density_per_area <= 1
-        assert 0 <= metrics.path_efficiency_ratio <= 1
+        assert 0 <= metrics.entropy <= 1
+        assert 0 <= metrics.fixation_density <= 1
 
 
 # ========================================================================
@@ -704,68 +689,49 @@ class TestCompleteGazeMetricsModel:
     def test_gaze_metrics_model_structure(self):
         """Test that GazeMetricsModel contains all required metrics."""
         fixation = FixationMetricsModel(
-            fixation_count=8,
-            mean_fixation_duration_ms=260.0,
-            std_fixation_duration_ms=50.0,
-            min_fixation_duration_ms=180.0,
-            max_fixation_duration_ms=340.0,
-            total_fixation_time_ms=2080.0,
-            mean_fixation_dispersion_deg=1.8,
+            count=8,
+            mean_duration_ms=260.0,
+            std_duration_ms=50.0,
+            min_duration_ms=180.0,
+            max_duration_ms=340.0,
+            total_duration_ms=2080.0,
         )
 
         saccade = SaccadeMetricsModel(
-            saccade_count=14,
-            mean_saccade_amplitude_deg=9.2,
-            std_saccade_amplitude_deg=2.5,
-            min_saccade_amplitude_deg=2.1,
-            max_saccade_amplitude_deg=15.8,
-            mean_saccade_velocity_deg_per_sec=215.0,
-            mean_saccade_peak_velocity_deg_per_sec=340.0,
+            count=14,
+            mean_amplitude_deg=9.2,
+            mean_velocity_deg_per_sec=215.0,
+            mean_peak_velocity_deg_per_sec=340.0,
         )
 
         social = SocialAttentionMetricsModel(
-            mean_social_attention_index=0.74,
-            std_social_attention_index=0.09,
-            mean_eye_preference=0.66,
-            mean_mouth_preference=0.18,
-            mean_nose_preference=0.05,
-            mean_geometric_preference=0.11,
-            social_to_geometric_ratio=6.7,
-            aoi_transitions_per_second=2.1,
-            mean_time_to_social_fixation_ms=520.0,
+            social_attention_index=0.74,
+            eye_preference=0.66,
+            mouth_preference=0.18,
         )
 
         scanpath = ScanpathMetricsModel(
-            mean_scanpath_entropy=0.61,
-            std_scanpath_entropy=0.11,
-            fixation_density_per_area=0.38,
-            mean_path_length_deg=312.5,
-            path_efficiency_ratio=0.71,
+            entropy=0.61,
+            fixation_density=0.38,
+            path_length_deg=312.5,
         )
 
-        # Create complete model
+        # Create complete model using nested sub-models
         metrics = GazeMetricsModel(
-            mean_social_attention_index=social.mean_social_attention_index,
-            mean_eye_preference=social.mean_eye_preference,
-            mean_mouth_preference=social.mean_mouth_preference,
-            mean_nose_preference=social.mean_nose_preference,
-            mean_fixation_duration_ms=fixation.mean_fixation_duration_ms,
-            mean_fixation_count=fixation.fixation_count,
-            mean_fixation_dispersion_deg=fixation.mean_fixation_dispersion_deg,
-            mean_saccade_amplitude_deg=saccade.mean_saccade_amplitude_deg,
-            mean_saccade_velocity_deg_per_sec=saccade.mean_saccade_velocity_deg_per_sec,
-            mean_saccade_peak_velocity_deg_per_sec=saccade.mean_saccade_peak_velocity_deg_per_sec,
-            mean_time_to_first_fixation_ms=520.0,
-            mean_scanpath_entropy=scanpath.mean_scanpath_entropy,
-            signal_quality_mean=0.89,
-            mean_blink_rate=15.2,
+            timestamp=datetime.utcnow().timestamp(),
+            fixations=fixation,
+            saccades=saccade,
+            social_attention=social,
+            scanpath=scanpath,
+            signal_quality=0.89,
+            blink_rate=15.2,
         )
 
-        # Verify all fields present
-        assert metrics.mean_social_attention_index > 0
-        assert metrics.mean_fixation_duration_ms > 0
-        assert metrics.mean_saccade_amplitude_deg > 0
-        assert metrics.mean_scanpath_entropy >= 0
+        # Verify all fields present via nested models
+        assert metrics.social_attention.social_attention_index > 0
+        assert metrics.fixations.mean_duration_ms > 0
+        assert metrics.saccades.mean_amplitude_deg > 0
+        assert metrics.scanpath.entropy >= 0
 
 
 # ========================================================================

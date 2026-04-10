@@ -282,8 +282,9 @@ class AssessmentMetricsSnapshot(BaseModel):
     )
     sai_std: float = 0.0
 
-    # Eye Preference
+    # Eye / Mouth Preference
     mean_eye_preference: float = Field(0.0, ge=0.0, le=1.0)
+    mean_mouth_preference: float = Field(0.0, ge=0.0, le=1.0)
     eye_preference_trend: str = Field("stable", description="'decreasing', 'stable', 'increasing'")
 
     # Fixation Metrics
