@@ -56,7 +56,7 @@ def large_gaze_dataset():
             timestamp=start_time + t,
             gaze_x=np.clip(gaze_x, 0, 1),
             gaze_y=np.clip(gaze_y, 0, 1),
-            confidence=0.8 + np.random.normal(0, 0.1),
+            confidence=float(np.clip(0.8 + np.random.normal(0, 0.1), 0.0, 1.0)),
             is_blink=np.random.random() < 0.01,  # ~1% blink rate
             head_pitch=np.random.normal(0, 5),
             head_yaw=np.random.normal(0, 5),
