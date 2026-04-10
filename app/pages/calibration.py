@@ -295,60 +295,61 @@ def render_calibration_interface():
     run = st.checkbox("Iniciar Câmera", value=False)
 
     if run:
-        camera_input = st.camera_input("Câmera")
+        from PIL import Image
+        import cv2
+
+        # Always show calibration grid immediately so user knows where to look
+        current_idx = st.session_state.current_calibration_index
+        if current_idx < len(calibration_grid):
+            target_x, target_y = calibration_grid[current_idx]
+
+            grid_image = Image.new("RGB", (400, 400), color="white")
+            pixels = grid_image.load()
+
+            for idx, (x, y) in enumerate(calibration_grid):
+                px, py = int(x * 400), int(y * 400)
+                color = (255, 0, 0) if idx == current_idx else (180, 180, 180)
+                for dx in range(-10, 11):
+                    for dy in range(-10, 11):
+                        if dx * dx + dy * dy <= 100:  # circle shape
+                            if 0 <= px + dx < 400 and 0 <= py + dy < 400:
+                                pixels[px + dx, py + dy] = color
+
+            # Crosshair on current point
+            px, py = int(target_x * 400), int(target_y * 400)
+            for i in range(-25, 26):
+                if 0 <= px + i < 400:
+                    pixels[px + i, py] = (200, 0, 0)
+                if 0 <= py + i < 400:
+                    pixels[px, py + i] = (200, 0, 0)
+
+            grid_placeholder.image(grid_image, use_column_width=True)
+
+            st.info(f"👁️ **Olhe para o ponto vermelho** e clique em 'Capturar' para registrar")
+
+        # Camera capture
+        camera_input = st.camera_input("📸 Capturar amostra do olhar")
 
         if camera_input is not None:
-            from PIL import Image
-            import cv2
-
             image = Image.fromarray(np.array(camera_input))
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+            webcam_placeholder.image(image, use_column_width=True)
 
             # Detect face
             face_list = st.session_state.face_detector.detect(image_cv)
 
             if face_list:
-                st.success(f"✅ Rosto detectado")
+                st.success("✅ Rosto detectado — pronto para coletar")
 
-                # Show current calibration point
                 current_idx = st.session_state.current_calibration_index
                 if current_idx < len(calibration_grid):
                     target_x, target_y = calibration_grid[current_idx]
 
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        webcam_placeholder.image(image, use_column_width=True)
-
-                    with col2:
-                        # Draw calibration grid
-                        grid_image = Image.new("RGB", (400, 400), color="white")
-                        pixels = grid_image.load()
-
-                        # Draw grid points
-                        for idx, (x, y) in enumerate(calibration_grid):
-                            px, py = int(x * 400), int(y * 400)
-                            color = (255, 0, 0) if idx == current_idx else (200, 200, 200)
-                            for dx in range(-8, 9):
-                                for dy in range(-8, 9):
-                                    if 0 <= px + dx < 400 and 0 <= py + dy < 400:
-                                        pixels[px + dx, py + dy] = color
-
-                        # Draw center crosshair for current point
-                        if current_idx < len(calibration_grid):
-                            px, py = int(target_x * 400), int(target_y * 400)
-                            for i in range(-20, 21):
-                                if 0 <= px + i < 400:
-                                    pixels[px + i, py] = (255, 0, 0)
-                                if 0 <= py + i < 400:
-                                    pixels[px, py + i] = (255, 0, 0)
-
-                        grid_placeholder.image(grid_image, use_column_width=True)
-
-                    # Button to collect sample
                     if st.button(
-                        f"📍 Coletar Amostra {current_idx + 1}/9",
+                        f"📍 Registrar Amostra {current_idx + 1}/9",
                         use_container_width=True,
+                        type="primary",
                     ):
                         try:
                             sample = collect_calibration_sample(
@@ -362,19 +363,18 @@ def render_calibration_interface():
 
                             if sample:
                                 st.success(
-                                    f"✅ Amostra {current_idx + 1} coletada "
+                                    f"✅ Amostra {current_idx + 1} registrada "
                                     f"(erro: {sample.distance_pixels:.1f}px)"
                                 )
                                 st.session_state.current_calibration_index += 1
                                 st.rerun()
                             else:
-                                st.error("❌ Falha ao coletar amostra")
+                                st.error("❌ Falha ao coletar amostra — tente novamente")
 
                         except Exception as e:
                             st.error(f"Erro: {str(e)}")
-
             else:
-                st.warning("⚠️ Nenhum rosto detectado. Ajuste a posição.")
+                st.warning("⚠️ Nenhum rosto detectado — ajuste a posição e capture novamente")
 
     # ========================================================================
     # RESULTS & ACTIONS
