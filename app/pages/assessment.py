@@ -17,7 +17,7 @@ import logging
 from typing import Optional, List
 import json
 
-from core.face_detection import FaceDetector
+from core.face_detection import FaceDetector, FaceLandmarks
 from core.gaze_estimation import GazeEstimator
 from core.feature_extraction import FeatureExtractor
 from core.config import (
@@ -144,34 +144,27 @@ def save_stimulus_metrics(
 
 def collect_gaze_sample(
     gaze_estimator: GazeEstimator,
-    face_landmarks: np.ndarray,
-    camera_matrix: np.ndarray,
+    face_landmarks: FaceLandmarks,
     is_blink: bool = False
 ) -> Optional[GazeDataPoint]:
     """Collect a single gaze sample."""
     try:
-        gaze_point = gaze_estimator.estimate_gaze_point(
-            face_landmarks=face_landmarks,
-            camera_matrix=camera_matrix
-        )
+        gaze_point = gaze_estimator.estimate_gaze(face_landmarks=face_landmarks)
 
-        if gaze_point is None:
+        if gaze_point.gaze_confidence == 0.0:
             return None
 
-        gaze_x, gaze_y = gaze_point
-
-        # Get head pose from face estimator
-        head_pose = gaze_estimator.get_head_pose()
+        head_pose = gaze_estimator.get_head_pose(face_landmarks)
 
         sample = GazeDataPoint(
             timestamp=datetime.utcnow().timestamp(),
-            gaze_x=gaze_x,
-            gaze_y=gaze_y,
-            confidence=gaze_estimator.confidence,
-            is_blink=is_blink,
-            head_pitch=head_pose[0] if head_pose else 0.0,
-            head_yaw=head_pose[1] if head_pose else 0.0,
-            head_roll=head_pose[2] if head_pose else 0.0,
+            gaze_x=gaze_point.gaze_x,
+            gaze_y=gaze_point.gaze_y,
+            confidence=gaze_point.gaze_confidence,
+            is_blink=gaze_point.blink_detected,
+            head_pitch=head_pose[0],
+            head_yaw=head_pose[1],
+            head_roll=head_pose[2],
         )
 
         st.session_state.gaze_samples.append(sample)
@@ -344,7 +337,7 @@ def render_assessment_interface():
     if st.session_state.face_detector is None:
         try:
             st.session_state.face_detector = FaceDetector(
-                confidence_threshold=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE
+                min_detection_confidence=MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE
             )
             st.session_state.gaze_estimator = GazeEstimator()
             st.session_state.feature_extractor = FeatureExtractor()
@@ -367,24 +360,14 @@ def render_assessment_interface():
             image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
             # Detect face
-            faces, landmarks = st.session_state.face_detector.detect(image_cv)
+            face_list = st.session_state.face_detector.detect(image_cv)
 
-            if faces and landmarks:
+            if face_list:
                 try:
-                    # Get camera matrix
-                    h, w = image_cv.shape[:2]
-                    focal_length = w
-                    camera_matrix = np.array(
-                        [[focal_length, 0, w / 2],
-                         [0, focal_length, h / 2],
-                         [0, 0, 1]]
-                    )
-
                     # Collect gaze sample
                     sample = collect_gaze_sample(
                         gaze_estimator=st.session_state.gaze_estimator,
-                        face_landmarks=landmarks[0],
-                        camera_matrix=camera_matrix,
+                        face_landmarks=face_list[0],
                     )
 
                     if sample:
