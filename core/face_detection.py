@@ -2,17 +2,23 @@
 Face Detection and Landmarks Extraction using MediaPipe
 
 Detects faces and extracts facial landmarks for gaze estimation.
-Based on MediaPipe Face Mesh (478 landmarks).
+Based on MediaPipe Face Landmarker Tasks API (478 landmarks).
 """
 
 import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe.tasks.python import vision as mp_vision
+from mediapipe.tasks.python.core.base_options import BaseOptions
+from pathlib import Path
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Default model path
+_DEFAULT_MODEL_PATH = Path(__file__).parent.parent / "assets" / "face_landmarker.task"
 
 
 @dataclass
@@ -29,7 +35,7 @@ class FaceLandmarks:
 
 class FaceDetector:
     """
-    Face detection and landmark extraction using MediaPipe Face Mesh.
+    Face detection and landmark extraction using MediaPipe Face Landmarker.
 
     MediaPipe provides 478 facial landmarks with real-time performance.
     Key landmark indices for eye-tracking:
@@ -51,34 +57,37 @@ class FaceDetector:
 
     def __init__(
         self,
-        static_image_mode: bool = False,
         max_num_faces: int = 1,
-        refine_landmarks: bool = True,
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
+        model_path: Optional[str] = None,
     ):
         """
         Initialize Face Detector.
 
         Args:
-            static_image_mode: Static image or video mode
             max_num_faces: Maximum number of faces to detect
-            refine_landmarks: Refine iris landmarks
             min_detection_confidence: Minimum confidence for detection
             min_tracking_confidence: Minimum confidence for tracking
+            model_path: Path to face_landmarker.task model file
         """
-        self.mp_face_mesh = mp.solutions.face_mesh
+        resolved_model = model_path or str(_DEFAULT_MODEL_PATH)
 
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=static_image_mode,
-            max_num_faces=max_num_faces,
-            refine_landmarks=refine_landmarks,
-            min_detection_confidence=min_detection_confidence,
+        base_options = BaseOptions(model_asset_path=resolved_model)
+        options = mp_vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            running_mode=mp_vision.RunningMode.IMAGE,
+            num_faces=max_num_faces,
+            min_face_detection_confidence=min_detection_confidence,
+            min_face_presence_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False,
         )
 
-        self.frame_width = None
-        self.frame_height = None
+        self.face_landmarker = mp_vision.FaceLandmarker.create_from_options(options)
+        self.frame_width: Optional[int] = None
+        self.frame_height: Optional[int] = None
         self.face_detected_last_frame = False
 
     def detect(self, frame: np.ndarray) -> List[FaceLandmarks]:
@@ -95,33 +104,32 @@ class FaceDetector:
             logger.warning("Invalid frame provided to FaceDetector.detect()")
             return []
 
-        # Get frame dimensions
         self.frame_height, self.frame_width = frame.shape[:2]
 
-        # Convert BGR to RGB
+        # Convert BGR to RGB and wrap in MediaPipe Image
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-        # Detect landmarks
-        results = self.face_mesh.process(rgb_frame)
+        result = self.face_landmarker.detect(mp_image)
 
         faces = []
 
-        if results.multi_face_landmarks:
-            for face_id, face_landmarks in enumerate(results.multi_face_landmarks):
+        if result.face_landmarks:
+            for face_id, face_lm_list in enumerate(result.face_landmarks):
                 landmarks_3d = np.array(
-                    [[lm.x, lm.y, lm.z] for lm in face_landmarks.landmark],
+                    [[lm.x, lm.y, lm.z] for lm in face_lm_list],
                     dtype=np.float32,
                 )
 
-                # Convert to pixel coordinates
+                # Convert normalized coords to pixel coordinates
                 landmarks_2d = landmarks_3d[:, :2].copy()
                 landmarks_2d[:, 0] *= self.frame_width
                 landmarks_2d[:, 1] *= self.frame_height
 
-                # Calculate face confidence
-                face_confidence = float(np.mean([lm.z for lm in face_landmarks.landmark]))
+                # Use mean landmark presence as face confidence
+                presences = [lm.presence for lm in face_lm_list if lm.presence is not None]
+                face_confidence = float(np.mean(presences)) if presences else 0.5
 
-                # Calculate bounding box
                 bbox = self._calculate_bbox(landmarks_2d)
 
                 faces.append(
@@ -180,7 +188,7 @@ class FaceDetector:
             face_landmarks: FaceLandmarks object
 
         Returns:
-            Mouth landmarks (48, 2)
+            Mouth landmarks
         """
         return face_landmarks.landmarks_2d[self.MOUTH_INDICES]
 
@@ -220,24 +228,19 @@ class FaceDetector:
         Returns:
             Tuple of (pitch, yaw, roll) in degrees
         """
-        # Use 3D landmarks for head pose estimation
         landmarks_3d = face_landmarks.landmarks_3d
 
-        # Key points for head pose
-        nose = landmarks_3d[1]  # Nose tip
-        left_eye = landmarks_3d[33]  # Left eye
-        right_eye = landmarks_3d[263]  # Right eye
-        chin = landmarks_3d[152]  # Chin
+        nose = landmarks_3d[1]
+        left_eye = landmarks_3d[33]
+        right_eye = landmarks_3d[263]
+        chin = landmarks_3d[152]
 
-        # Calculate vectors
         face_center = np.mean(landmarks_3d, axis=0)
 
-        # Simple head pose estimation based on facial landmarks
         eye_vector = right_eye - left_eye
         nose_vector = nose - face_center
         chin_vector = chin - face_center
 
-        # Calculate angles (simplified)
         yaw = np.arctan2(eye_vector[0], eye_vector[2]) * 180 / np.pi
         pitch = np.arctan2(nose_vector[1], nose_vector[2]) * 180 / np.pi
         roll = np.arctan2(chin_vector[0], chin_vector[1]) * 180 / np.pi
@@ -260,16 +263,12 @@ class FaceDetector:
         y_min = int(np.min(landmarks_2d[:, 1]))
         y_max = int(np.max(landmarks_2d[:, 1]))
 
-        x = x_min
-        y = y_min
-        w = x_max - x_min
-        h = y_max - y_min
-
-        return x, y, w, h
+        return x_min, y_min, x_max - x_min, y_max - y_min
 
     def release(self):
         """Release MediaPipe resources."""
-        self.face_mesh.close()
+        if hasattr(self, "face_landmarker"):
+            self.face_landmarker.close()
 
     def __del__(self):
         """Cleanup on deletion."""
@@ -302,23 +301,17 @@ def visualize_landmarks(
     landmarks = face_landmarks.landmarks_2d
 
     if draw_eye_only:
-        # Draw eye landmarks
-        left_eye_indices = FaceDetector.LEFT_EYE_INDICES
-        right_eye_indices = FaceDetector.RIGHT_EYE_INDICES
-
-        for idx in left_eye_indices:
+        for idx in FaceDetector.LEFT_EYE_INDICES:
             pt = landmarks[idx]
             cv2.circle(frame_copy, tuple(pt), 2, (0, 255, 0), -1)
 
-        for idx in right_eye_indices:
+        for idx in FaceDetector.RIGHT_EYE_INDICES:
             pt = landmarks[idx]
             cv2.circle(frame_copy, tuple(pt), 2, (0, 255, 0), -1)
     else:
-        # Draw all landmarks
         for pt in landmarks:
             cv2.circle(frame_copy, tuple(pt), 1, (0, 255, 0), -1)
 
-    # Draw iris centers
     if draw_iris:
         left_iris = landmarks[FaceDetector.LEFT_IRIS_INDEX]
         right_iris = landmarks[FaceDetector.RIGHT_IRIS_INDEX]
@@ -326,7 +319,6 @@ def visualize_landmarks(
         cv2.circle(frame_copy, tuple(left_iris), 3, (255, 0, 0), -1)
         cv2.circle(frame_copy, tuple(right_iris), 3, (255, 0, 0), -1)
 
-    # Draw face bounding box
     if face_landmarks.bbox:
         x, y, w, h = face_landmarks.bbox
         cv2.rectangle(frame_copy, (x, y), (x + w, y + h), (255, 0, 0), 2)
@@ -335,7 +327,6 @@ def visualize_landmarks(
 
 
 if __name__ == "__main__":
-    # Test face detection
     import sys
 
     logging.basicConfig(level=logging.INFO)
