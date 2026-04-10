@@ -70,6 +70,9 @@ stimuli/videos/*.mov
 *.pkl
 *.model
 
+# MediaPipe model files (download via setup)
+assets/*.task
+
 # OS
 Thumbs.db
 .DS_Store

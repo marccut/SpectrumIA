@@ -36,6 +36,8 @@ from .schemas import (
     AssessmentSessionCreate,
     AssessmentResultsResponse,
     AssessmentResultsCreate,
+    AssessmentMetricsSnapshot,
+    RiskFactors,
     GazeDataPoint,
     GazeMetricsModel,
     ScreeningResult,
@@ -662,7 +664,7 @@ class SupabaseClient:
             user_id=data["user_id"],
             calibration_id=data["calibration_id"],
             status=data["status"],
-            assessment_type=data["assessment_type"],
+            assessment_type=data.get("assessment_type", "asd_screening"),
             stimuli=data.get("stimuli", []),
             total_duration_ms=data.get("total_duration_ms", 0),
             samples_count=data.get("samples_count", 0),
@@ -674,21 +676,39 @@ class SupabaseClient:
 
     def _format_results_response(self, data: Dict) -> AssessmentResultsResponse:
         """Format database results record to AssessmentResultsResponse."""
+        # Parse metrics_snapshot from dict or use default
+        metrics_raw = data.get("metrics_snapshot")
+        if isinstance(metrics_raw, dict):
+            metrics_snapshot = AssessmentMetricsSnapshot(**metrics_raw)
+        elif isinstance(metrics_raw, AssessmentMetricsSnapshot):
+            metrics_snapshot = metrics_raw
+        else:
+            metrics_snapshot = AssessmentMetricsSnapshot(mean_social_attention_index=0.0)
+
+        # Parse risk_factors from dict or use default
+        risk_raw = data.get("risk_factors")
+        if isinstance(risk_raw, dict):
+            risk_factors = RiskFactors(**risk_raw)
+        elif isinstance(risk_raw, RiskFactors):
+            risk_factors = risk_raw
+        else:
+            risk_factors = RiskFactors()
+
         return AssessmentResultsResponse(
             result_id=data["result_id"],
             session_id=data["session_id"],
             user_id=data["user_id"],
-            assessment_type=data["assessment_type"],
-            metrics_snapshot=data["metrics_snapshot"],
-            risk_factors=data["risk_factors"],
-            risk_factor_count=data["risk_factor_count"],
-            screening_result=ScreeningResult(data["screening_result"]),
-            confidence_score=data["confidence_score"],
-            risk_percentage=data["risk_percentage"],
+            assessment_type=data.get("assessment_type", "asd_screening"),
+            metrics_snapshot=metrics_snapshot,
+            risk_factors=risk_factors,
+            risk_factor_count=data.get("risk_factor_count", 0),
+            screening_result=ScreeningResult(data.get("screening_result", "inconclusive")),
+            confidence_score=data.get("confidence_score", 0.0),
+            risk_percentage=data.get("risk_percentage", 0.0),
             clinical_notes=data.get("clinical_notes"),
             interpretation=data.get("interpretation"),
-            assessment_completed_at=datetime.fromisoformat(data["assessment_completed_at"]),
-            results_generated_at=datetime.fromisoformat(data["results_generated_at"]),
+            assessment_completed_at=datetime.fromisoformat(data["assessment_completed_at"]) if data.get("assessment_completed_at") else datetime.utcnow(),
+            results_generated_at=datetime.fromisoformat(data["results_generated_at"]) if data.get("results_generated_at") else datetime.utcnow(),
             expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
             recommend_clinical_evaluation=data.get("recommend_clinical_evaluation", False),
             recommendation_text=data.get("recommendation_text"),

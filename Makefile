@@ -1,4 +1,4 @@
-.PHONY: help install install-dev setup-pre-commit test test-fast test-coverage lint format type-check security-check clean clean-cache clean-test run docs
+.PHONY: help install install-dev setup-pre-commit download-models test test-fast test-coverage lint format type-check security-check clean clean-cache clean-test run docs
 
 PYTHON := python3
 PIP := pip
@@ -34,7 +34,7 @@ help: ## Show this help message
 	@grep -E '^(setup-pre-commit|run|clean|docs):.*?## ' $(MAKEFILE_LIST) | sed 's/^/  /' | awk 'BEGIN {FS = ":.*?## "} {printf "$(BLUE)%-30s$(NC) %s\n", $$1, $$2}'
 
 # Installation targets
-install: ## Install production dependencies
+install: download-models ## Install production dependencies
 	@echo "$(YELLOW)Installing production dependencies...$(NC)"
 	$(PIP) install -r requirements.txt
 	@echo "$(GREEN)✓ Dependencies installed$(NC)"
@@ -43,6 +43,17 @@ install-dev: install ## Install development dependencies
 	@echo "$(YELLOW)Installing development dependencies...$(NC)"
 	$(PIP) install -e ".[dev]"
 	@echo "$(GREEN)✓ Development dependencies installed$(NC)"
+
+download-models: ## Download required ML model files (face_landmarker.task)
+	@echo "$(YELLOW)Downloading MediaPipe face landmarker model...$(NC)"
+	@mkdir -p assets
+	@if [ -f assets/face_landmarker.task ]; then \
+		echo "$(GREEN)✓ face_landmarker.task already exists$(NC)"; \
+	else \
+		curl -fL "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task" \
+			-o assets/face_landmarker.task && \
+		echo "$(GREEN)✓ face_landmarker.task downloaded$(NC)"; \
+	fi
 
 setup-pre-commit: install-dev ## Setup pre-commit hooks
 	@echo "$(YELLOW)Setting up pre-commit hooks...$(NC)"

@@ -67,8 +67,15 @@ class GazeEstimator:
         self.blink_counter = 0
         self.previous_eye_aspect_ratio = 0.5
 
-        # Shared FaceDetector instance (avoids repeated instantiation)
-        self._face_detector = FaceDetector()
+        # Lazy-initialized shared FaceDetector instance
+        self._face_detector: Optional["FaceDetector"] = None
+
+    @property
+    def face_detector(self) -> "FaceDetector":
+        """Lazily-initialized shared FaceDetector instance."""
+        if self._face_detector is None:
+            self._face_detector = FaceDetector()
+        return self._face_detector
 
     def estimate_gaze(
         self,
@@ -96,8 +103,8 @@ class GazeEstimator:
             self.screen_height = screen_height
 
         # Get eye landmarks
-        left_eye, right_eye = self._face_detector.get_eye_landmarks(face_landmarks)
-        iris_left, iris_right = self._face_detector.get_iris_center(face_landmarks)
+        left_eye, right_eye = self.face_detector.get_eye_landmarks(face_landmarks)
+        iris_left, iris_right = self.face_detector.get_iris_center(face_landmarks)
 
         # Calculate eye aspect ratios
         left_ear = self._calculate_eye_aspect_ratio(left_eye)
@@ -282,7 +289,7 @@ class GazeEstimator:
             self.calibration_samples[key] = []
 
         # Store iris positions and screen point
-        iris_left, iris_right = self._face_detector.get_iris_center(face_landmarks)
+        iris_left, iris_right = self.face_detector.get_iris_center(face_landmarks)
         self.calibration_samples[key].append(
             {
                 "screen_point": screen_point,
@@ -306,7 +313,7 @@ class GazeEstimator:
         Returns:
             Tuple of (pitch, yaw, roll) in degrees
         """
-        return self._face_detector.calculate_head_pose(face_landmarks)
+        return self.face_detector.calculate_head_pose(face_landmarks)
 
     def get_calibration_samples_count(self) -> int:
         """Get number of calibration samples collected."""

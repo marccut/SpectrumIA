@@ -114,7 +114,7 @@ class TestUserOperations:
         from postgrest.exceptions import APIError
         (mock_supabase_client.client.table()
          .insert()
-         .execute.side_effect) = APIError("Email already exists")
+         .execute.side_effect) = APIError({"message": "Email already exists", "code": "23505", "details": "", "hint": ""})
 
         # Test
         with pytest.raises(APIError):
@@ -153,7 +153,7 @@ class TestUserOperations:
          .select()
          .eq()
          .single()
-         .execute.side_effect) = APIError("No rows found")
+         .execute.side_effect) = APIError({"message": "No rows found", "code": "PGRST116", "details": "", "hint": ""})
 
         result = mock_supabase_client.get_user("nonexistent-id")
 
@@ -533,7 +533,7 @@ class TestErrorHandling:
 
         (mock_supabase_client.client.table()
          .insert()
-         .execute.side_effect) = APIError("Connection timeout")
+         .execute.side_effect) = APIError({"message": "Connection timeout", "code": "08006", "details": "", "hint": ""})
 
         with pytest.raises(APIError):
             mock_supabase_client.create_user(sample_user_data)
