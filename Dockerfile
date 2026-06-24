@@ -4,15 +4,13 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (numpy/scipy use pre-compiled wheels — no BLAS dev libs needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libopenblas-dev \
-    liblapack-dev \
-    libatlas-base-dev \
-    gfortran \
     libfreetype6-dev \
     libpng-dev \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
@@ -28,12 +26,9 @@ WORKDIR /app
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopenblas0 \
-    liblapack3 \
-    libatlas3-base \
     libfreetype6 \
-    libpng16-16 \
-    postgresql-client \
+    libgl1 \
+    libglib2.0-0 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
