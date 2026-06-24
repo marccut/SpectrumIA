@@ -1,0 +1,271 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                      SpectrumIA - UI Mockup                               ║
+║                    Authentication System Visualization                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════════
+ESTADO 1: PÁGINA DE LOGIN (Primeiro acesso)
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                                                                             │
+│                           🧠 SpectrumIA                                    │
+│                  Eye-Tracking Based Screening Tool                         │
+│               for Autism Spectrum Disorder                                 │
+│                                                                             │
+│                                                                             │
+│                    ┌──────────────────────────────┐                        │
+│                    │         Login                │                        │
+│                    ├──────────────────────────────┤                        │
+│                    │                              │                        │
+│                    │  Email                       │                        │
+│                    │  ┌──────────────────────────┐│                        │
+│                    │  │example@spectrum.ai    ▌ ││                        │
+│                    │  └──────────────────────────┘│                        │
+│                    │                              │                        │
+│                    │  Password                    │                        │
+│                    │  ┌──────────────────────────┐│                        │
+│                    │  │••••••••••••••••••••   ▌ ││                        │
+│                    │  └──────────────────────────┘│                        │
+│                    │                              │                        │
+│                    │     ┌──────────────────┐    │                        │
+│                    │     │     Login        │    │                        │
+│                    │     └──────────────────┘    │                        │
+│                    │                              │                        │
+│                    └──────────────────────────────┘                        │
+│                                                                             │
+│                    Demo Credentials:                                       │
+│                    Email: demo@spectrum.ai                                 │
+│                    Password: demo123                                       │
+│                                                                             │
+│                    or                                                      │
+│                                                                             │
+│                    Email: test@spectrum.ai                                 │
+│                    Password: test123                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ESTADO 2: APÓS LOGIN - HOME PAGE (Usuario Autenticado)
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌──────────────────────────────┐  Main Content                           │
+│  │ 👤 Logged in as:             │  ┌─────────────────────────────────┐   │
+│  │    Demo                      │  │                                 │   │
+│  │    demo@spectrum.ai          │  │      🧠 SpectrumIA              │   │
+│  ├──────────────────────────────┤  │  Eye-Tracking Based            │   │
+│  │[🏠 Home] [🚪 Logout]         │  │  Screening Tool for ASD        │   │
+│  ├──────────────────────────────┤  │                                 │   │
+│  │ Navigation                   │  │  ┌─────────────────────────┐   │   │
+│  │ ○ Home           (selected)  │  │  │ Welcome to SpectrumIA   │   │   │
+│  │ ○ Calibration                │  │  │                         │   │   │
+│  │ ○ Assessment                 │  │  │ SpectrumIA is an       │   │   │
+│  │ ○ Results                    │  │  │ eye-tracking based      │   │   │
+│  │                              │  │  │ screening tool...       │   │   │
+│  ├──────────────────────────────┤  │  └─────────────────────────┘   │   │
+│  │ Version: 1.0.0               │  │                                 │   │
+│  │ Session: abc123de...         │  │ Key Features:                   │   │
+│  │                              │  │ • Real-time Eye Tracking       │   │
+│  │                              │  │ • Social Attention Analysis    │   │
+│  │                              │  │ • Validated Biomarkers         │   │
+│  │                              │  │ • Female Phenotype Focus       │   │
+│  │                              │  │ • Explainable AI               │   │
+│  │                              │  │                                 │   │
+│  │                              │  │ Getting Started:                │   │
+│  │                              │  │ 1. Calibration                 │   │
+│  │                              │  │ 2. Assessment                  │   │
+│  │                              │  │ 3. Results                     │   │
+│  │                              │  │                                 │   │
+│  └──────────────────────────────┘  └─────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ESTADO 3: PÁGINA CALIBRATION
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  ┌──────────────────────────────┐  Main Content                           │
+│  │ 👤 Logged in as:             │  ┌─────────────────────────────────┐   │
+│  │    Demo                      │  │                                 │   │
+│  │    demo@spectrum.ai          │  │   📍 Gaze Calibration          │   │
+│  ├──────────────────────────────┤  │                                 │   │
+│  │[🏠 Home] [🚪 Logout]         │  │ ⚠️ Calibration Required         │   │
+│  ├──────────────────────────────┤  │                                 │   │
+│  │ Navigation                   │  │ Before taking the assessment... │   │
+│  │ ○ Home                       │  │                                 │   │
+│  │ ○ Calibration  (selected)    │  │ Setup Instructions:             │   │
+│  │ ○ Assessment                 │  │ 1. Position yourself 60-80 cm  │   │
+│  │ ○ Results                    │  │    from the screen             │   │
+│  │                              │  │ 2. Ensure adequate lighting    │   │
+│  │                              │  │ 3. Keep head relatively still  │   │
+│  │                              │  │ 4. Follow calibration points   │   │
+│  ├──────────────────────────────┤  │    with your eyes              │   │
+│  │ Version: 1.0.0               │  │                                 │   │
+│  │ Session: abc123de...         │  │                                 │   │
+│  │                              │  │  ┌──────────────────────┐      │   │
+│  │                              │  │  │ Start Calibration    │      │   │
+│  │                              │  │  └──────────────────────┘      │   │
+│  │                              │  │                                 │   │
+│  │                              │  │ (Calibration interface would   │   │
+│  │                              │  │  load here in next phase)      │   │
+│  │                              │  │                                 │   │
+│  └──────────────────────────────┘  └─────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ESTADO 4: APÓS CLICAR LOGOUT
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                                                                             │
+│                      ✅ Logged out successfully!                           │
+│                                                                             │
+│                           🧠 SpectrumIA                                    │
+│                  Eye-Tracking Based Screening Tool                         │
+│               for Autism Spectrum Disorder                                 │
+│                                                                             │
+│                                                                             │
+│                    ┌──────────────────────────────┐                        │
+│                    │         Login                │                        │
+│                    ├──────────────────────────────┤                        │
+│                    │                              │                        │
+│                    │  Email                       │                        │
+│                    │  ┌──────────────────────────┐│                        │
+│                    │  │                        ▌ ││                        │
+│                    │  └──────────────────────────┘│                        │
+│                    │                              │                        │
+│                    │  Password                    │                        │
+│                    │  ┌──────────────────────────┐│                        │
+│                    │  │                        ▌ ││                        │
+│                    │  └──────────────────────────┘│                        │
+│                    │                              │                        │
+│                    │     ┌──────────────────┐    │                        │
+│                    │     │     Login        │    │                        │
+│                    │     └──────────────────┘    │                        │
+│                    │                              │                        │
+│                    └──────────────────────────────┘                        │
+│                    (Volta ao login - estado resetado)                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPONENTES PRINCIPAIS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. LOGIN PAGE
+   ├─ Header (Logo + Título)
+   ├─ Email Input Field
+   ├─ Password Input Field
+   ├─ Login Button
+   └─ Demo Credentials Info
+
+2. SIDEBAR (Após login)
+   ├─ User Info Box (Nome + Email)
+   │  └─ Design: Caixa azul clara
+   ├─ Action Buttons (lado a lado)
+   │  ├─ 🏠 Home Button (Lado esquerdo)
+   │  └─ 🚪 Logout Button (Lado direito)
+   ├─ Navigation Radio Buttons
+   │  ├─ Home
+   │  ├─ Calibration
+   │  ├─ Assessment
+   │  └─ Results
+   └─ Debug Info
+      ├─ Version
+      └─ Session ID
+
+
+═══════════════════════════════════════════════════════════════════════════════
+FLUXO DE NAVEGAÇÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+START
+  │
+  ▼
+LOGIN PAGE ◄─────────────────┐
+  │                          │
+  │ (Email + Password)       │ (Logout clicked)
+  │                          │
+  ▼                          │
+VERIFY CREDENTIALS           │
+  │                          │
+  ├─ Valid ──────────────────┼──────┐
+  │                          │      │
+  │  Invalid ─ Error Message │      │
+  │                          │      │
+  ▼                          ▼      │
+HOME ◄──────────────┐            │
+  │                │   [🏠 Home] │
+  │ (Navigate)     │             │
+  ├─ Calibration  │             │
+  ├─ Assessment   │             │
+  └─ Results      │             │
+                  │             │
+  └─ [🚪 Logout]──┴─────────────┘
+     (Reset State)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+CORES E ESTILOS
+═══════════════════════════════════════════════════════════════════════════════
+
+USER INFO BOX:
+  Background: #e8f4f8 (Azul claro)
+  Border Left: 4px solid #17a2b8 (Azul mais escuro)
+  Padding: 1rem
+
+LOGIN CONTAINER:
+  Background: #f8f9fa (Cinza claro)
+  Padding: 2rem
+  Border Radius: 0.5rem
+  Box Shadow: 0 2px 4px rgba(0,0,0,0.1)
+
+CARDS:
+  Background: #f8f9fa (Cinza claro)
+  Border Left: 4px solid #1f77b4 (Azul padrão)
+
+WARNING CARDS:
+  Background: #fff3cd (Amarelo claro)
+  Border Left: 4px solid #ff9800 (Laranja)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+INFORMAÇÕES IMPORTANTES
+═══════════════════════════════════════════════════════════════════════════════
+
+CREDENCIAIS DE DEMO:
+  1. demo@spectrum.ai / demo123
+  2. test@spectrum.ai / test123
+
+BOTÕES PRINCIPAIS:
+  • 🏠 Home: Sempre visível após login
+  • 🚪 Logout: Sempre visível após login
+  • 📍 Logout: Desconecta e reseta estado
+
+PÁGINAS PROTEGIDAS:
+  • Home (requer login)
+  • Calibration (requer login)
+  • Assessment (requer login)
+  • Results (requer login)
+
+ESTADO DE SESSÃO:
+  • authenticated: True/False
+  • user_email: string
+  • user_name: string (extraído do email)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Desenvolvido para SpectrumIA - 2026-04-08
+✅ Sistema de Autenticação Completo e Funcional
