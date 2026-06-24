@@ -92,9 +92,11 @@ class GazeEstimator:
         if screen_height:
             self.screen_height = screen_height
 
-        # Get eye landmarks
-        left_eye, right_eye = FaceDetector().get_eye_landmarks(face_landmarks)
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        # Get eye landmarks — use class constants directly to avoid per-frame instantiation
+        left_eye = face_landmarks.landmarks_2d[FaceDetector.LEFT_EYE_INDICES]
+        right_eye = face_landmarks.landmarks_2d[FaceDetector.RIGHT_EYE_INDICES]
+        iris_left = face_landmarks.landmarks_2d[FaceDetector.LEFT_IRIS_INDEX]
+        iris_right = face_landmarks.landmarks_2d[FaceDetector.RIGHT_IRIS_INDEX]
 
         # Calculate eye aspect ratios
         left_ear = self._calculate_eye_aspect_ratio(left_eye)
@@ -278,8 +280,9 @@ class GazeEstimator:
         if key not in self.calibration_samples:
             self.calibration_samples[key] = []
 
-        # Store iris positions and screen point
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        # Store iris positions and screen point — use class constants to avoid per-frame instantiation
+        iris_left = face_landmarks.landmarks_2d[FaceDetector.LEFT_IRIS_INDEX]
+        iris_right = face_landmarks.landmarks_2d[FaceDetector.RIGHT_IRIS_INDEX]
         self.calibration_samples[key].append(
             {
                 "screen_point": screen_point,
@@ -329,7 +332,8 @@ def visualize_gaze(
 
     # Draw iris center and ray
     if face_landmarks.face_detected and draw_gaze_ray:
-        iris_left, iris_right = FaceDetector().get_iris_center(face_landmarks)
+        iris_left = face_landmarks.landmarks_2d[FaceDetector.LEFT_IRIS_INDEX]
+        iris_right = face_landmarks.landmarks_2d[FaceDetector.RIGHT_IRIS_INDEX]
         iris_center = (iris_left + iris_right) / 2
         iris_pixel = tuple(iris_center.astype(int))
 

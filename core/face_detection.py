@@ -12,6 +12,11 @@ from typing import Optional, Tuple, List
 from dataclasses import dataclass
 import logging
 
+try:
+    from mediapipe.python.solutions import face_mesh as mp_face_mesh
+except ImportError:
+    mp_face_mesh = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +72,15 @@ class FaceDetector:
             min_detection_confidence: Minimum confidence for detection
             min_tracking_confidence: Minimum confidence for tracking
         """
-        self.mp_face_mesh = mp.solutions.face_mesh
+        if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_mesh"):
+            self.mp_face_mesh = mp.solutions.face_mesh
+        elif mp_face_mesh is not None:
+            self.mp_face_mesh = mp_face_mesh
+        else:
+            raise ImportError(
+                "MediaPipe Face Mesh is unavailable in this environment. "
+                "Install a compatible mediapipe build with face_mesh support."
+            )
 
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=static_image_mode,
@@ -118,8 +131,9 @@ class FaceDetector:
                 landmarks_2d[:, 0] *= self.frame_width
                 landmarks_2d[:, 1] *= self.frame_height
 
-                # Calculate face confidence
-                face_confidence = float(np.mean([lm.z for lm in face_landmarks.landmark]))
+                # Face confidence: use 1.0 when detected (z-depth is not a confidence score;
+                # detection itself is binary — if we're here, a face was found).
+                face_confidence = 1.0
 
                 # Calculate bounding box
                 bbox = self._calculate_bbox(landmarks_2d)

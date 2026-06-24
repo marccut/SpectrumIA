@@ -9,7 +9,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class CalibrationPoint:
     gaze_y: float  # Estimated gaze position
     face_detected: bool
     face_confidence: float
-    collected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    collected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -36,7 +36,7 @@ class CalibrationData:
     screen_width: int = 1920
     screen_height: int = 1080
     calibration_quality: float = 0.0  # 0-100 based on face detection consistency
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def add_point(self, point: CalibrationPoint):
         """Add a calibration point to the dataset."""

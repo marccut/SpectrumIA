@@ -54,6 +54,9 @@ EXTRACT_GAZE_DYNAMICS = os.getenv("EXTRACT_GAZE_DYNAMICS", "True").lower() == "t
 EXTRACT_TEMPORAL_METRICS = os.getenv("EXTRACT_TEMPORAL_METRICS", "True").lower() == "true"
 EXTRACT_SCANPATH_ENTROPY = os.getenv("EXTRACT_SCANPATH_ENTROPY", "True").lower() == "true"
 
+# Demo / local mode — only active when explicitly set in environment
+DEMO_MODE_ENABLED = os.getenv("DEMO_MODE_ENABLED", "False").lower() == "true"
+
 # MediaPipe Configuration
 MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE = 0.5
 MEDIAPIPE_FACE_MESH_MIN_CONFIDENCE = 0.5

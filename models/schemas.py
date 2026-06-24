@@ -11,7 +11,7 @@ Scientific References:
 - Carpenter et al. (2021) - Digital behavioral phenotyping
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator
@@ -444,8 +444,8 @@ def create_assessment_results(
         screening_result=screening_result,
         confidence_score=confidence_score,
         risk_percentage=risk_percentage,
-        assessment_completed_at=datetime.utcnow(),
-        results_generated_at=datetime.utcnow(),
+        assessment_completed_at=datetime.now(timezone.utc),
+        results_generated_at=datetime.now(timezone.utc),
         recommend_clinical_evaluation=screening_result in [
             ScreeningResult.MODERATE_RISK,
             ScreeningResult.HIGH_RISK

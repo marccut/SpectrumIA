@@ -14,23 +14,13 @@ References:
 import numpy as np
 from typing import List, Tuple, Dict, Optional
 from dataclasses import dataclass, field
-from enum import Enum
 from collections import defaultdict
 import logging
 
 from .utils import calculate_euclidean_distance
+from models.schemas import AOIType  # single canonical definition (str, Enum)
 
 logger = logging.getLogger(__name__)
-
-
-class AOIType(Enum):
-    """Area of Interest types."""
-
-    EYES = "eyes"
-    MOUTH = "mouth"
-    NOSE = "nose"
-    FACE_OVAL = "face_oval"
-    BACKGROUND = "background"
 
 
 @dataclass

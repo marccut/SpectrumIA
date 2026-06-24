@@ -13,7 +13,8 @@ Integration Points:
 """
 
 import logging
-from datetime import datetime, timedelta
+import threading
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 import json
 import uuid
@@ -92,7 +93,7 @@ class SupabaseClient:
         """
         try:
             user_id = str(uuid.uuid4())
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             response = (
                 self.client.table("users")
@@ -188,7 +189,7 @@ class SupabaseClient:
         """
         try:
             calibration_id = str(uuid.uuid4())
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             response = (
                 self.client.table("calibration_sessions")
@@ -291,7 +292,7 @@ class SupabaseClient:
         """
         try:
             session_id = str(uuid.uuid4())
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             response = (
                 self.client.table("assessment_sessions")
@@ -495,6 +496,78 @@ class SupabaseClient:
             logger.error(f"Error retrieving gaze data: {e}")
             raise
 
+    def insert_gaze_metrics(
+        self,
+        session_id: str,
+        metrics: GazeMetricsModel,
+    ) -> str:
+        """
+        Insert extracted gaze metrics for one stimulus into gaze_metrics table.
+
+        Args:
+            session_id: Assessment session ID
+            metrics: GazeMetricsModel with nested sub-models
+
+        Returns:
+            metrics_id of the inserted row
+        """
+        try:
+            data = {
+                "metrics_id": str(uuid.uuid4()),
+                "session_id": session_id,
+                "stimulus_id": metrics.stimulus_id,
+                "timestamp": metrics.timestamp,
+                # Fixation metrics (flattened from metrics.fixations)
+                "fixation_count": metrics.fixations.count,
+                "fixation_mean_duration_ms": metrics.fixations.mean_duration_ms,
+                "fixation_median_duration_ms": metrics.fixations.median_duration_ms,
+                "fixation_std_duration_ms": metrics.fixations.std_duration_ms,
+                "fixation_total_duration_ms": metrics.fixations.total_duration_ms,
+                # Saccade metrics (flattened from metrics.saccades)
+                "saccade_count": metrics.saccades.count,
+                "saccade_mean_amplitude_deg": metrics.saccades.mean_amplitude_deg,
+                "saccade_mean_velocity_deg_per_sec": metrics.saccades.mean_velocity_deg_per_sec,
+                "saccade_peak_velocity_deg_per_sec": metrics.saccades.mean_peak_velocity_deg_per_sec,
+                "saccade_latency_ms": metrics.saccades.latency_ms,
+                # Social attention metrics — CORE ASD biomarkers
+                "social_attention_index": metrics.social_attention.social_attention_index,
+                "eye_preference": metrics.social_attention.eye_preference,
+                "mouth_preference": metrics.social_attention.mouth_preference,
+                "time_on_eyes_ms": metrics.social_attention.time_on_eyes_ms,
+                "time_on_mouth_ms": metrics.social_attention.time_on_mouth_ms,
+                "time_on_face_ms": metrics.social_attention.time_on_face_ms,
+                "attention_shifts": metrics.social_attention.attention_shifts,
+                # Scanpath metrics
+                "scanpath_entropy": metrics.scanpath.entropy,
+                "time_to_first_fixation_ms": metrics.scanpath.time_to_first_fixation_ms,
+                "fixation_density": metrics.scanpath.fixation_density,
+                "path_length_deg": metrics.scanpath.path_length_deg,
+                # Blink and quality
+                "blink_count": metrics.blink_count,
+                "blink_rate": metrics.blink_rate,
+                "gaze_confidence_mean": metrics.gaze_confidence_mean,
+                "signal_quality": metrics.signal_quality,
+                # AOI metrics as JSON
+                "aoi_metrics": metrics.aoi_metrics,
+            }
+
+            response = (
+                self.client.table("gaze_metrics")
+                .insert(data)
+                .execute()
+            )
+
+            metrics_id = response.data[0]["metrics_id"]
+            logger.info(
+                "Inserted gaze metrics for stimulus '%s' in session %s (id=%s)",
+                metrics.stimulus_id, session_id, metrics_id,
+            )
+            return metrics_id
+
+        except APIError as e:
+            logger.error("Error inserting gaze metrics: %s", e)
+            raise
+
     # ========================================================================
     # Results Operations
     # ========================================================================
@@ -513,7 +586,7 @@ class SupabaseClient:
             Created AssessmentResultsResponse
         """
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expires_at = now + timedelta(days=RESULTS_RETENTION_DAYS)
 
             response = (
@@ -613,7 +686,7 @@ class SupabaseClient:
             Number of results deleted
         """
         try:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             response = (
                 self.client.table("assessment_results")
                 .delete()
@@ -701,13 +774,17 @@ class SupabaseClient:
         )
 
 
-# Singleton instance
+# Singleton instance — lock ensures only one SupabaseClient is created
+# even under concurrent Streamlit requests.
 _db_client: Optional[SupabaseClient] = None
+_db_lock = threading.Lock()
 
 
 def get_db() -> SupabaseClient:
-    """Get or create database client singleton."""
+    """Get or create database client singleton (thread-safe)."""
     global _db_client
     if _db_client is None:
-        _db_client = SupabaseClient()
+        with _db_lock:
+            if _db_client is None:  # double-checked locking
+                _db_client = SupabaseClient()
     return _db_client
