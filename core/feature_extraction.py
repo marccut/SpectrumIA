@@ -113,12 +113,12 @@ class FeatureExtractor:
     SACCADE_VELOCITY_MIN_DEG_PER_SEC = 30
     SACCADE_VELOCITY_MAX_DEG_PER_SEC = 700
 
-    # AOI definitions (normalized 0-1)
-    AOI_DEFINITIONS = {
-        AOIType.EYES: (0.3, 0.2, 0.7, 0.4),  # x_min, y_min, x_max, y_max
-        AOIType.MOUTH: (0.35, 0.6, 0.65, 0.85),
-        AOIType.NOSE: (0.4, 0.35, 0.6, 0.6),
-        AOIType.FACE_OVAL: (0.2, 0.1, 0.8, 0.95),
+    # Default AOI definitions (normalized 0-1) — overridable per-stimulus via set_aoi_definitions()
+    _DEFAULT_AOI_DEFINITIONS = {
+        AOIType.EYES:       (0.3, 0.2, 0.7, 0.4),  # x_min, y_min, x_max, y_max
+        AOIType.MOUTH:      (0.35, 0.6, 0.65, 0.85),
+        AOIType.NOSE:       (0.4, 0.35, 0.6, 0.6),
+        AOIType.FACE_OVAL:  (0.2, 0.1, 0.8, 0.95),
         AOIType.BACKGROUND: (0.0, 0.0, 1.0, 1.0),
     }
 
@@ -137,6 +137,8 @@ class FeatureExtractor:
         self.ppd = ppd
         self.sampling_rate_hz = sampling_rate_hz
         self.frame_duration_ms = 1000 / sampling_rate_hz
+        # Instance-level AOI definitions (can be set per-stimulus)
+        self.AOI_DEFINITIONS = dict(self._DEFAULT_AOI_DEFINITIONS)
 
         # Gaze history
         self.gaze_history: List[Tuple[float, float, float]] = []  # (x, y, timestamp)
@@ -149,6 +151,20 @@ class FeatureExtractor:
         self.current_fixation_points = []
         self.fixations = []
         self.saccades = []
+
+    def set_aoi_definitions(self, aoi_dict: dict) -> None:
+        """Override AOI coordinates for the current stimulus.
+
+        Args:
+            aoi_dict: Mapping of AOIType → (x_min, y_min, x_max, y_max) normalized 0–1.
+                      Typically sourced from StimulusDefinition.aoi_coords.
+        """
+        # Accept both AOIType keys and plain string keys
+        normalized = {}
+        for k, v in aoi_dict.items():
+            key = k if isinstance(k, AOIType) else AOIType(k)
+            normalized[key] = v
+        self.AOI_DEFINITIONS = normalized
 
     def add_gaze_sample(
         self,

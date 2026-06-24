@@ -43,6 +43,7 @@ from models.schemas import (
     StimulusRecord,
 )
 from models.database import get_db
+from stimuli.stimuli_config import get_stimuli_for_assessment, stimuli_ready, missing_stimuli
 
 logger = logging.getLogger(__name__)
 
@@ -145,30 +146,8 @@ def _ensure_detection_models() -> bool:
 
 
 def get_stimulus_list() -> List[dict]:
-    """Get list of stimuli for assessment."""
-    return [
-        {
-            "id": "face_video_01",
-            "name": "Rosto Falando",
-            "type": "face",
-            "duration_ms": 30000,
-            "description": "Vídeo de rosto falando (30s)",
-        },
-        {
-            "id": "face_video_02",
-            "name": "Rosto Sorrindo",
-            "type": "face",
-            "duration_ms": 20000,
-            "description": "Vídeo de rosto com expressões (20s)",
-        },
-        {
-            "id": "geometric_01",
-            "name": "Padrão Geométrico",
-            "type": "geometric",
-            "duration_ms": 15000,
-            "description": "Padrão geométrico em movimento (15s)",
-        },
-    ]
+    """Get list of stimuli for assessment (legacy dict format for compatibility)."""
+    return [s.to_legacy_dict() for s in get_stimuli_for_assessment()]
 
 
 def create_assessment_session(
@@ -498,7 +477,35 @@ def render_assessment_interface():
         st.info(f"⏱️ Duração: {stimulus['duration_ms']/1000:.0f} segundos")
 
     with col2:
-        st.metric("Tipo", stimulus['type'].upper())
+        st.metric("Tipo", stimulus['type'].replace("_", " ").upper())
+
+    # ── Exibir imagem do estímulo ──────────────────────────────────────────────
+    if stimulus.get("image_path"):
+        from pathlib import Path as _Path
+        img_path = _Path(stimulus["image_path"])
+        if img_path.exists():
+            st.image(
+                str(img_path),
+                caption=stimulus["name"],
+                use_container_width=True,
+            )
+        else:
+            st.warning(
+                f"⚠️ Imagem não encontrada: {img_path.name}. "
+                "Execute `python stimuli/generate_placeholders.py` para criar os placeholders."
+            )
+    else:
+        st.info("ℹ️ Sem imagem definida para este estímulo.")
+
+    # ── Configurar AOIs no extrator para este estímulo ────────────────────────
+    if (
+        st.session_state.get("feature_extractor") is not None
+        and stimulus.get("aoi_coords")
+    ):
+        try:
+            st.session_state.feature_extractor.set_aoi_definitions(stimulus["aoi_coords"])
+        except Exception as _aoi_err:
+            logger.warning(f"Não foi possível definir AOIs para {stimulus['id']}: {_aoi_err}")
 
     st.divider()
 
