@@ -19,10 +19,9 @@ from datetime import datetime
 import logging
 from typing import Optional, List
 
-# Add core to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# All imports FIRST
 from core.auth import get_auth, initialize_session_state as init_auth_state
 from models.schemas import (
     AssessmentResultsResponse,
@@ -30,24 +29,19 @@ from models.schemas import (
 )
 from models.database import get_db
 
-# Page config
-st.set_page_config(
-    page_title="SpectrumIA - Results",
-    page_icon="📊",
-    layout="wide",
-)
-
-# Initialize auth AFTER imports
-init_auth_state()
-auth = get_auth()
-
-# Check authentication - AFTER all imports
-if not auth.is_authenticated():
-    st.error("❌ Please login first")
-    st.info("Go to **🔐 Login** page to authenticate")
-    st.stop()
-
 logger = logging.getLogger(__name__)
+
+
+def _is_permission_error(exc: Exception) -> bool:
+    """Detect Supabase permission/RLS failures when loading results."""
+    error_text = str(exc).lower()
+    return (
+        "row-level security" in error_text
+        or "violates row-level security" in error_text
+        or "'code': '42501'" in error_text
+        or '"code": "42501"' in error_text
+        or "permission denied" in error_text
+    )
 
 
 def initialize_session_state():
@@ -91,9 +85,11 @@ def load_user_results(user_id: str) -> List[AssessmentResultsResponse]:
             return results
         except Exception as e:
             logger.error(f"Error loading results: {e}")
+            if _is_permission_error(e):
+                logger.info("Permission denied while loading results; returning empty list")
+                return []
             return []
     except ValueError as e:
-        # Supabase not configured (demo mode)
         logger.info("Demo mode: Supabase not configured")
         return []
 
@@ -136,7 +132,6 @@ def generate_clinical_interpretation(result: AssessmentResultsResponse) -> str:
         Uma avaliação clínica completa (ADOS-2, ADI-R) é altamente recomendada.
         """
 
-    # Add specific findings
     interpretation += "\n\n### 🔍 Achados Específicos\n\n"
 
     if risk_factors.reduced_eye_gaze:
@@ -204,18 +199,18 @@ def generate_recommendations(result: AssessmentResultsResponse) -> str:
 
 def render_results_interface():
     """Render main results interface."""
-    st.set_page_config(
-        page_title="Resultados - SpectrumIA",
-        page_icon="📊",
-        layout="wide",
-    )
+    init_auth_state()
+    auth = get_auth()
+    if not auth.is_authenticated():
+        st.error("❌ Please login first")
+        st.info("Go to the main page and authenticate before opening Results.")
+        st.stop()
 
     st.title("📊 Resultados da Avaliação")
     st.markdown("Análise completa dos dados de rastreamento ocular")
 
     initialize_session_state()
 
-    # Check user authentication
     if "user_id" not in st.session_state:
         st.warning("Por favor, faça login primeiro na página principal")
         st.stop()
@@ -229,11 +224,9 @@ def render_results_interface():
     with st.sidebar:
         st.header("📋 Histórico de Avaliações")
 
-        # Load results
         results_list = load_user_results(user_id)
 
         if results_list:
-            # Create selector
             result_options = {
                 f"{r.results_generated_at.strftime('%d/%m/%Y %H:%M')} - {r.screening_result.value}": r.result_id
                 for r in results_list
@@ -248,7 +241,6 @@ def render_results_interface():
             selected_result_id = result_options[selected_option]
             st.session_state.selected_result_id = selected_result_id
 
-            # Find selected result
             selected_result = next(
                 (r for r in results_list if r.result_id == selected_result_id),
                 None
@@ -271,11 +263,9 @@ def render_results_interface():
 
         st.divider()
 
-        # Export options
         st.subheader("📥 Exportar Dados")
 
         if st.session_state.results_data:
-            # Export as JSON
             if st.button("📄 JSON", use_container_width=True):
                 import json
                 json_str = json.dumps(
@@ -290,7 +280,6 @@ def render_results_interface():
                     mime="application/json"
                 )
 
-            # Export as CSV
             if st.button("📊 CSV", use_container_width=True):
                 metrics = st.session_state.results_data.metrics_snapshot
                 df = pd.DataFrame({
@@ -336,7 +325,6 @@ def render_results_interface():
     icon = get_risk_icon(result.screening_result)
     color = get_risk_color(result.screening_result)
 
-    # Main result display
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -395,7 +383,6 @@ def render_results_interface():
     risk_factors = result.risk_factors
     risk_count = result.risk_factor_count
 
-    # Risk factors grid
     col1, col2 = st.columns(2)
 
     factors = [
@@ -456,7 +443,6 @@ def render_results_interface():
         if result.expires_at:
             st.write(f"**Expira em:** {result.expires_at.strftime('%d/%m/%Y')}")
 
-    # Clinical notes
     if result.clinical_notes:
         st.subheader("🏥 Notas Clínicas")
         st.write(result.clinical_notes)
@@ -472,16 +458,15 @@ def render_results_interface():
     with col1:
         if st.button("🔄 Nova Avaliação", use_container_width=True):
             st.session_state.assessment_session_id = None
-            st.switch_page("pages/assessment.py")
+            st.switch_page("pages/3_Assessment.py")
 
     with col2:
         if st.button("🧭 Calibração", use_container_width=True):
-            st.switch_page("pages/calibration.py")
+            st.switch_page("pages/2_Calibration.py")
 
     with col3:
         if st.button("🏠 Home", use_container_width=True):
-            st.switch_page("app/main.py")
+            st.switch_page("streamlit_app.py")
 
 
-if __name__ == "__main__":
-    render_results_interface()
+render_results_interface()

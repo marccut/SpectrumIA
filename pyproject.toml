@@ -168,7 +168,6 @@ markers = [
     "performance: Performance tests",
     "slow: Slow tests",
 ]
-testpaths = ["tests"]
 norecursedirs = [".git", ".venv", "venv", "__pycache__", "build", "dist"]
 
 [tool.coverage.run]
