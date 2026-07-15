@@ -22,7 +22,7 @@ from typing import Optional, List
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.auth import get_auth, initialize_session_state as init_auth_state
+from core.auth import get_access_token, get_auth, initialize_session_state as init_auth_state
 from core.config import (
     GAZE_CALIBRATION_POINTS,
     MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
@@ -165,7 +165,7 @@ def create_calibration_session(user_id: str, num_points: int = 9):
         return _start_demo_calibration_session(user_id, num_points)
 
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         return _start_demo_calibration_session(user_id, num_points)
 
@@ -276,7 +276,7 @@ def save_calibration_session(session_id: str) -> bool:
         return True
 
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: Simulating calibration session save")
         if not st.session_state.calibration_points:

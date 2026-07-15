@@ -40,7 +40,8 @@ def mock_supabase_client():
     with patch('models.database.create_client') as mock_create:
         mock_client = MagicMock()
         mock_create.return_value = mock_client
-        client = SupabaseClient()
+        client = SupabaseClient(access_token="test-access-token")
+        mock_client.postgrest.auth.assert_called_once_with("test-access-token")
         client.client = mock_client
         return client
 
@@ -505,19 +506,86 @@ class TestResultsOperations:
 
 
 # ============================================================================
-# DATABASE SINGLETON TESTS
+# QUESTIONNAIRE OPERATIONS TESTS
 # ============================================================================
 
-class TestDatabaseSingleton:
-    """Test database client singleton pattern."""
+class TestQuestionnaireOperations:
+    """Test psychometric questionnaire persistence."""
 
-    def test_get_db_returns_singleton(self):
-        """Test that get_db returns singleton instance."""
-        with patch('models.database.SupabaseClient'):
-            db1 = get_db()
-            db2 = get_db()
+    def test_save_questionnaire_result_success(self, mock_supabase_client):
+        user_id = str(uuid4())
+        mock_response = MagicMock()
+        mock_response.data = [{
+            "questionnaire_result_id": str(uuid4()),
+            "user_id": user_id,
+            "questionnaire_name": "CAT-Q",
+            "total_score": 112.0,
+            "subscale_scores": {"compensation": 40.0},
+            "raw_responses": {"0": 4},
+            "risk_level": "high",
+            "camouflage_weight": 0.8,
+            "interpretation": "Elevated camouflage score.",
+        }]
+        (mock_supabase_client.client.table()
+         .insert()
+         .execute.return_value) = mock_response
 
-            assert db1 is db2
+        result = mock_supabase_client.save_questionnaire_result(
+            user_id=user_id,
+            questionnaire_name="CAT-Q",
+            total_score=112.0,
+            subscale_scores={"compensation": 40.0},
+            raw_responses={"0": 4},
+            risk_level="high",
+            camouflage_weight=0.8,
+            interpretation="Elevated camouflage score.",
+        )
+
+        assert result["questionnaire_name"] == "CAT-Q"
+        mock_supabase_client.client.table.assert_called_with(
+            "questionnaire_results"
+        )
+
+    def test_save_questionnaire_rejects_invalid_contract(
+        self, mock_supabase_client
+    ):
+        with pytest.raises(ValueError, match="Unsupported questionnaire"):
+            mock_supabase_client.save_questionnaire_result(
+                user_id=str(uuid4()),
+                questionnaire_name="UNKNOWN",
+                total_score=1.0,
+                subscale_scores={},
+                raw_responses={},
+                risk_level="low",
+                camouflage_weight=0.0,
+                interpretation="",
+            )
+
+
+# ============================================================================
+# DATABASE SESSION ISOLATION TESTS
+# ============================================================================
+
+class TestDatabaseSessionIsolation:
+    """Test that database clients are isolated by authenticated session."""
+
+    def test_get_db_returns_distinct_clients_for_distinct_tokens(self):
+        """A process-global client must never share one user's JWT."""
+        with patch('models.database.SupabaseClient') as client_class:
+            client_class.side_effect = [Mock(name="user_a"), Mock(name="user_b")]
+            db1 = get_db("token-a")
+            db2 = get_db("token-b")
+
+            assert db1 is not db2
+            assert client_class.call_args_list[0].kwargs == {"access_token": "token-a"}
+            assert client_class.call_args_list[1].kwargs == {"access_token": "token-b"}
+
+    def test_get_db_requires_access_token(self):
+        """Anonymous database access fails closed before a client is created."""
+        with patch('models.database.SupabaseClient') as client_class:
+            with pytest.raises(ValueError, match="access token"):
+                get_db("")
+            client_class.assert_not_called()
 
 
 # ============================================================================

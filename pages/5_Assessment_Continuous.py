@@ -21,7 +21,7 @@ import json
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.auth import get_auth, initialize_session_state as init_auth_state
+from core.auth import get_access_token, get_auth, initialize_session_state as init_auth_state
 from core.config import (
     MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
     MEDIAPIPE_FACE_MESH_MIN_TRACKING_CONFIDENCE,
@@ -147,7 +147,7 @@ def create_assessment_session(
 ) -> Optional[AssessmentSessionResponse]:
     """Create a new assessment session in database."""
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: Creating mock assessment session")
         mock_session_id = f"ass_{user_id[:8]}"
@@ -180,7 +180,7 @@ def create_assessment_session(
 def save_gaze_data(session_id: str, gaze_samples: List[GazeDataPoint]) -> bool:
     """Save gaze data to database."""
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info(f"Demo mode: Simulating save of {len(gaze_samples)} gaze samples")
         return True
@@ -217,7 +217,7 @@ def save_stimulus_metrics(
     Falls back gracefully when Supabase is unavailable or RLS blocks.
     """
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: metrics for stimulus '%s' kept in-memory only", stimulus_id)
         return True
@@ -292,7 +292,7 @@ def collect_gaze_sample(
 def finish_assessment_session(session_id: str) -> bool:
     """Mark assessment session as completed."""
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: Simulating assessment session completion")
         st.session_state.assessment_status = "completed"

@@ -250,7 +250,38 @@ CREATE INDEX idx_results_expires_at ON assessment_results(expires_at);
 
 
 -- ============================================================================
--- 7. AUDIT LOG TABLE - Track all database changes
+-- 7. QUESTIONNAIRE RESULTS TABLE - Psychometric screening history
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS questionnaire_results (
+    questionnaire_result_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    questionnaire_name VARCHAR(20) NOT NULL CHECK (
+        questionnaire_name IN ('CAT-Q', 'RAADS-R')
+    ),
+    total_score DOUBLE PRECISION NOT NULL CHECK (total_score >= 0.0),
+    subscale_scores JSONB NOT NULL DEFAULT '{}'::JSONB,
+    raw_responses JSONB NOT NULL DEFAULT '{}'::JSONB,
+    risk_level VARCHAR(20) NOT NULL CHECK (
+        risk_level IN ('low', 'moderate', 'high')
+    ),
+    camouflage_weight DOUBLE PRECISION NOT NULL CHECK (
+        camouflage_weight >= 0.0 AND camouflage_weight <= 1.0
+    ),
+    interpretation TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_questionnaire_results_user_id
+    ON questionnaire_results(user_id);
+CREATE INDEX idx_questionnaire_results_name
+    ON questionnaire_results(questionnaire_name);
+CREATE INDEX idx_questionnaire_results_created_at
+    ON questionnaire_results(created_at DESC);
+
+
+-- ============================================================================
+-- 8. AUDIT LOG TABLE - Track all database changes
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -269,11 +300,13 @@ CREATE INDEX idx_audit_log_created_at ON audit_log(created_at DESC);
 
 
 -- ============================================================================
--- 8. VIEWS - Commonly used queries
+-- 9. VIEWS - Commonly used queries
 -- ============================================================================
 
+-- SECURITY INVOKER makes the views obey the caller's table-level RLS policies.
 -- View: Assessments with user info
-CREATE OR REPLACE VIEW assessment_summary AS
+CREATE OR REPLACE VIEW assessment_summary
+WITH (security_invoker = true) AS
 SELECT
     a.session_id,
     a.user_id,
@@ -297,7 +330,8 @@ ORDER BY a.created_at DESC;
 
 
 -- View: High-risk assessments
-CREATE OR REPLACE VIEW high_risk_assessments AS
+CREATE OR REPLACE VIEW high_risk_assessments
+WITH (security_invoker = true) AS
 SELECT
     r.result_id,
     r.user_id,
@@ -314,7 +348,8 @@ ORDER BY r.risk_percentage DESC;
 
 
 -- View: User assessment history
-CREATE OR REPLACE VIEW user_assessment_history AS
+CREATE OR REPLACE VIEW user_assessment_history
+WITH (security_invoker = true) AS
 SELECT
     u.user_id,
     u.email,
@@ -330,7 +365,7 @@ GROUP BY u.user_id, u.email;
 
 
 -- ============================================================================
--- 9. FUNCTIONS - Helper stored procedures
+-- 10. FUNCTIONS - Helper stored procedures
 -- ============================================================================
 
 -- Function: Mark expired records for cleanup

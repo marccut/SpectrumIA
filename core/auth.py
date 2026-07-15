@@ -20,6 +20,8 @@ from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
 
+_AUTH_INSTANCE_KEY = "_spectrumia_auth_instance"
+
 
 def _is_demo_mode_enabled() -> bool:
     """Return True only when DEMO_MODE_ENABLED=true is explicitly set in env."""
@@ -29,7 +31,7 @@ def _is_demo_mode_enabled() -> bool:
 
 def _clear_session() -> None:
     """Remove all auth-related keys from Streamlit session state."""
-    for key in ("user_data", "auth_mode", "session_initialized"):
+    for key in ("user_data", "auth_mode", "session_initialized", _AUTH_INSTANCE_KEY):
         st.session_state.pop(key, None)
 
 
@@ -429,15 +431,20 @@ class SpectrumIAAuth:
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
-_auth_instance: Optional[SpectrumIAAuth] = None
-
-
 def get_auth() -> SpectrumIAAuth:
-    """Return (or create) the module-level auth singleton."""
-    global _auth_instance
-    if _auth_instance is None:
-        _auth_instance = SpectrumIAAuth()
-    return _auth_instance
+    """Return an auth client isolated to the current Streamlit session."""
+    auth = st.session_state.get(_AUTH_INSTANCE_KEY)
+    if not isinstance(auth, SpectrumIAAuth):
+        auth = SpectrumIAAuth()
+        st.session_state[_AUTH_INSTANCE_KEY] = auth
+    return auth
+
+
+def get_access_token() -> Optional[str]:
+    """Return the JWT stored in the current Streamlit user session."""
+    user_data = st.session_state.get("user_data") or {}
+    token = user_data.get("session")
+    return token if isinstance(token, str) and token else None
 
 
 def require_auth(func):
