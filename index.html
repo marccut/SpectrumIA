@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpectrumApp — Prontuário Clínico Inicial</title>
+  <style>
+    :root {
+      --bg: #0f2e4d;
+      --panel: #143a5c;
+      --panel-2: #1f6e8c;
+      --accent: #4fb3c8;
+      --accent-2: #7ed6e5;
+      --text: #eef7fb;
+      --muted: #c7dde6;
+      --result-bg: #ffffff;
+      --result-text: #102030;
+      --danger: #ffd5d5;
+      --ok: #bff3c8;
+      --warn: #fff0b8;
+      --shadow: 0 10px 30px rgba(0,0,0,0.18);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #0f2e4d 0%, #123657 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(79,179,200,0.18), rgba(31,110,140,0.35));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--shadow);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 32px;
+      color: var(--accent-2);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.45fr 0.95fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .left, .right {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      margin: 0 0 6px 0;
+      font-size: 20px;
+      color: var(--accent-2);
+    }
+
+    .card p.section-help {
+      margin: 0 0 14px 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .fields-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f3fbfe;
+    }
+
+    .field small {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 8px;
+      line-height: 1.35;
+      min-height: 34px;
+    }
+
+    select, input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.96);
+      color: #102030;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    .sticky-panel {
+      position: sticky;
+      top: 18px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .actions-1 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, opacity .2s ease;
+    }
+
+    button:hover { opacity: .96; }
+    button:active { transform: scale(0.99); }
+
+    .primary {
+      background: var(--accent);
+      color: #052535;
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.12);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .danger {
+      background: #d86b6b;
+      color: #fff;
+    }
+
+    .result {
+      background: var(--result-bg);
+      color: var(--result-text);
+      border-radius: 18px;
+      padding: 18px;
+      min-height: 220px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .metric {
+      background: #f1f7fa;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .metric b {
+      display: block;
+      font-size: 12px;
+      color: #47616d;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .metric span {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .badge-high { background: var(--ok); color: #0b4a1b; }
+    .badge-mid { background: var(--warn); color: #7b5d00; }
+    .badge-low { background: var(--danger); color: #7f1919; }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f3f7fa;
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 420px;
+      font-size: 12px;
+      color: #18303e;
+    }
+
+    .mini-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-top: 12px;
+    }
+
+    .history-item {
+      background: #f3f7fa;
+      color: #18303e;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .history-item b {
+      color: #26485a;
+    }
+
+    .success-msg {
+      color: #d8ffe0;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .error-msg {
+      color: #ffd5d5;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .patient-summary {
+      background: #f3f7fa;
+      color: #18303e;
+      border-radius: 12px;
+      padding: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1040px) {
+      .grid { grid-template-columns: 1fr; }
+      .sticky-panel { position: static; }
+      .fields, .fields-3 { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 14px; }
+      .hero { padding: 18px; }
+      h1 { font-size: 27px; }
+      .actions, .metrics { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>🧠 SpectrumApp — Prontuário Clínico Inicial</h1>
+      <p class="subtitle">
+        Interface clínica completa para cadastro de pacientes, avaliação do SpectrumIA,
+        salvamento automático de resultados e visualização longitudinal básica.
+      </p>
+    </section>
+
+    <div class="grid">
+      <div class="left">
+
+        <section class="card">
+          <h2>Paciente</h2>
+          <p class="section-help">Cadastre ou selecione um paciente para vincular as avaliações clínicas.</p>
+          <div class="fields-3">
+            <div class="field">
+              <label for="pid">ID do paciente</label>
+              <small>Ex.: teste-001</small>
+              <input id="pid" value="teste-001" />
+            </div>
+            <div class="field">
+              <label for="name">Nome</label>
+              <small>Nome de identificação clínica.</small>
+              <input id="name" value="Maria" />
+            </div>
+            <div class="field">
+              <label for="age">Idade</label>
+              <small>Idade atual.</small>
+              <input id="age" type="number" value="28" />
+            </div>
+            <div class="field">
+              <label for="sex">Sexo</label>
+              <small>Ex.: F, M, outro.</small>
+              <input id="sex" value="F" />
+            </div>
+            <div class="field">
+              <label for="subgroup">Perfil de subgrupo</label>
+              <small>Usado como phenotype do algoritmo.</small>
+              <select id="subgroup">
+                <option value="mixed">mixed</option>
+                <option value="female_masking_profile">female_masking_profile</option>
+                <option value="adult_late_identification">adult_late_identification</option>
+                <option value="adolescent">adolescent</option>
+                <option value="child">child</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" onclick="createPatient()">Salvar paciente</button>
+            <button class="secondary" onclick="listPatients()">Listar pacientes</button>
+          </div>
+          <div id="patientMessage"></div>
+          <pre id="patients">[]</pre>
+        </section>
+
+        <section class="card">
+          <h2>História do neurodesenvolvimento</h2>
+          <p class="section-help">Base longitudinal do modelo.</p>
+          <div class="fields" id="development-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Domínio social-pragmático</h2>
+          <p class="section-help">Reciprocidade, espontaneidade, leitura contextual e exaustão social.</p>
+          <div class="fields" id="social-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Rigidez, repetição e previsibilidade</h2>
+          <p class="section-help">Mudança, rotina, rigidez cognitiva e interesses restritos.</p>
+          <div class="fields" id="rr-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Perfil sensorial</h2>
+          <p class="section-help">Carga sensorial global para complementar o eixo de rigidez.</p>
+          <div class="fields" id="sensory-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Masking / compensação</h2>
+          <p class="section-help">Camuflagem social, custo interno e burnout.</p>
+          <div class="fields" id="masking-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Funcionalidade / custo adaptativo</h2>
+          <p class="section-help">Impacto ocupacional, vínculos e sofrimento subjetivo.</p>
+          <div class="fields" id="functionality-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Consistência multimodal</h2>
+          <p class="section-help">Convergência entre autorrelato, informantes e registros.</p>
+          <div class="fields" id="multimodal-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Diferenciais diagnósticos</h2>
+          <p class="section-help">Força explicativa rival para TDAH, ansiedade social, TLP, TOC e trauma.</p>
+          <div class="fields" id="differential-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Qualidade da evidência</h2>
+          <p class="section-help">Nível global e desenvolvimental de evidência.</p>
+          <div class="fields" id="evidence-fields"></div>
+        </section>
+
+        <section class="card">
+          <h2>Trajectory Model (NTM)</h2>
+          <p class="section-help">Consistência do padrão ao longo da vida.</p>
+          <div class="fields" id="trajectory-fields"></div>
+        </section>
+      </div>
+
+      <div class="right">
+        <div class="sticky-panel">
+
+          <section class="card">
+            <h2>Ações clínicas</h2>
+            <p class="section-help">O backend deve estar ativo em <code>http://127.0.0.1:8000</code>.</p>
+            <div class="actions">
+              <button class="primary" onclick="runScore()">Calcular avaliação</button>
+              <button class="secondary" onclick="loadExample()">Carregar exemplo</button>
+            </div>
+            <div class="actions">
+              <button class="secondary" onclick="loadHistory()">Ver histórico</button>
+              <button class="secondary" onclick="copyPayload()">Copiar payload</button>
+            </div>
+            <div class="actions-1">
+              <button class="danger" onclick="resetForm()">Limpar formulário</button>
+            </div>
+            <p class="mini-note">O endpoint <b>/score</b> salva automaticamente a avaliação no histórico do paciente.</p>
+          </section>
+
+          <section class="card">
+            <h2>Resumo do paciente</h2>
+            <div id="patientSummary" class="patient-summary">
+              <b>ID:</b> teste-001<br>
+              <b>Nome:</b> Maria<br>
+              <b>Idade:</b> 28<br>
+              <b>Sexo:</b> F<br>
+              <b>Subgrupo:</b> mixed
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Resultado clínico</h2>
+            <div id="resultBox" class="result">
+              <div class="badge badge-mid">Aguardando cálculo</div>
+              <p>Preencha os campos e clique em <b>Calcular avaliação</b>.</p>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Payload enviado</h2>
+            <pre id="payloadPreview">{}</pre>
+          </section>
+
+          <section class="card">
+            <h2>Histórico do paciente</h2>
+            <div id="historyBox" class="result">
+              <p>Nenhum histórico carregado.</p>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCALE = [0, 1, 2, 3, 4];
+
+    const groups = {
+      development_history: {
+        mount: "development-fields",
+        items: [
+          ["dh_early_social_difference", "Diferenças sociais precoces"],
+          ["dh_childhood_peer_difficulty", "Dificuldade com pares na infância"],
+          ["dh_childhood_rigidity", "Rigidez comportamental na infância"],
+          ["dh_childhood_restricted_interests", "Interesses restritos/intensos na infância"],
+          ["dh_family_or_school_corroboration", "Corroboração por família/escola"],
+          ["dh_developmental_trajectory_consistency", "Consistência global desenvolvimental"]
+        ]
+      },
+      social_pragmatic: {
+        mount: "social-fields",
+        items: [
+          ["sp_reciprocity_difficulty", "Dificuldade de reciprocidade"],
+          ["sp_social_initiation_difficulty", "Dificuldade para iniciar/manter interação"],
+          ["sp_context_reading_difficulty", "Leitura implícita do contexto"],
+          ["sp_scripted_social_behavior", "Uso de scripts sociais"],
+          ["sp_social_exhaustion", "Exaustão social"],
+          ["sp_adjust_communication_difficulty", "Ajuste da comunicação"],
+          ["sp_social_naturalness_discrepancy", "Discrepância de naturalidade social"],
+          ["sp_global_social_pragmatic_severity", "Gravidade global social-pragmática"]
+        ]
+      },
+      rigidity_repetition: {
+        mount: "rr-fields",
+        items: [
+          ["rr_distress_with_change", "Sofrimento com mudanças"],
+          ["rr_need_for_routine", "Necessidade de rotina"],
+          ["rr_cognitive_rigidity", "Rigidez cognitiva"],
+          ["rr_restricted_interest_intensity", "Intensidade de interesses restritos"],
+          ["rr_overload_in_chaotic_contexts", "Sobrecarga em ambientes caóticos"],
+          ["rr_global_rrp_severity", "Gravidade global de rigidez/repetição"]
+        ]
+      },
+      sensory_profile: {
+        mount: "sensory-fields",
+        items: [
+          ["se_global_sensory_burden", "Carga sensorial global"]
+        ]
+      },
+      masking_compensation: {
+        mount: "masking-fields",
+        items: [
+          ["mk_deliberate_social_imitation", "Imitação social deliberada"],
+          ["mk_preparation_for_interactions", "Preparação prévia para interações"],
+          ["mk_constant_self_monitoring", "Monitoramento constante do comportamento"],
+          ["mk_social_performance_internal_cost", "Custo interno do desempenho social"],
+          ["mk_autistic_burnout_features", "Burnout autista"],
+          ["mk_global_masking_severity", "Gravidade global de masking"]
+        ]
+      },
+      functionality_adaptation: {
+        mount: "functionality-fields",
+        items: [
+          ["fn_academic_occupational_impairment", "Prejuízo acadêmico/ocupacional"],
+          ["fn_relationship_maintenance_difficulty", "Dificuldade para manter vínculos"],
+          ["fn_adaptation_cost_hidden", "Custo adaptativo invisível"],
+          ["fn_subjective_distress", "Sofrimento subjetivo"],
+          ["fn_global_functional_burden", "Carga funcional global"]
+        ]
+      },
+      multimodal_consistency: {
+        mount: "multimodal-fields",
+        items: [
+          ["mc_self_report_consistency", "Consistência do autorrelato"],
+          ["mc_informant_agreement", "Concordância com informante"],
+          ["mc_historical_record_agreement", "Concordância com registros históricos"],
+          ["mc_cross_domain_convergence", "Convergência entre domínios"],
+          ["mc_temporal_stability", "Estabilidade temporal"],
+          ["mc_multimodal_conflict_level", "Conflito entre modalidades"]
+        ]
+      },
+      differential_diagnosis: {
+        mount: "differential-fields",
+        items: [
+          ["dd_adhd_explanatory_strength", "Força explicativa de TDAH"],
+          ["dd_social_anxiety_explanatory_strength", "Força explicativa de ansiedade social"],
+          ["dd_borderline_explanatory_strength", "Força explicativa de TLP"],
+          ["dd_ocd_obsessive_explanatory_strength", "Força explicativa de TOC/obsessividade"],
+          ["dd_trauma_cptsd_explanatory_strength", "Força explicativa de trauma/TEPT"],
+          ["dd_global_rivalry_index", "Índice global de rivalidade diagnóstica"]
+        ]
+      },
+      trajectory_model: {
+        mount: "trajectory-fields",
+        items: [
+          ["ntm_early_life_signal_presence", "Sinais precoces"],
+          ["ntm_adolescent_compensation_emergence", "Compensação na adolescência"],
+          ["ntm_adult_adaptation_overload", "Sobrecarga adaptativa na vida adulta"],
+          ["ntm_burnout_pattern_presence", "Padrão de burnout"],
+          ["ntm_lifespan_pattern_consistency", "Consistência ao longo da vida"]
+        ]
+      }
+    };
+
+    const evidenceFields = [
+      { id: "eq_overall_evidence_grade", label: "Grau global de evidência", value: "B" },
+      { id: "eq_developmental_evidence_grade", label: "Evidência desenvolvimental", value: "B" }
+    ];
+
+    function makeSelect(id, selectedValue = 0) {
+      const select = document.createElement("select");
+      select.id = id;
+      SCALE.forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = v;
+        if (String(v) === String(selectedValue)) option.selected = true;
+        select.appendChild(option);
+      });
+      return select;
+    }
+
+    function renderField(containerId, id, label, value = 0) {
+      const mount = document.getElementById(containerId);
+      const field = document.createElement("div");
+      field.className = "field";
+
+      const title = document.createElement("label");
+      title.setAttribute("for", id);
+      title.textContent = label;
+
+      const help = document.createElement("small");
+      help.textContent = "Escala ordinal de 0 a 4.";
+
+      field.appendChild(title);
+      field.appendChild(help);
+      field.appendChild(makeSelect(id, value));
+      mount.appendChild(field);
+    }
+
+    function renderAllFields() {
+      Object.entries(groups).forEach(([section, config]) => {
+        config.items.forEach(([id, label]) => renderField(config.mount, id, label, 0));
+      });
+
+      const evidenceMount = document.getElementById("evidence-fields");
+      evidenceFields.forEach(item => {
+        const field = document.createElement("div");
+        field.className = "field";
+
+        const title = document.createElement("label");
+        title.setAttribute("for", item.id);
+        title.textContent = item.label;
+
+        const help = document.createElement("small");
+        help.textContent = "A = alta, B = moderada, C = baixa evidência.";
+
+        const select = document.createElement("select");
+        select.id = item.id;
+        ["A", "B", "C"].forEach(v => {
+          const option = document.createElement("option");
+          option.value = v;
+          option.textContent = v;
+          if (v === item.value) option.selected = true;
+          select.appendChild(option);
+        });
+
+        field.appendChild(title);
+        field.appendChild(help);
+        field.appendChild(select);
+        evidenceMount.appendChild(field);
+      });
+    }
+
+    function getValue(id, fallback = 0) {
+      const el = document.getElementById(id);
+      if (!el) return fallback;
+      return parseInt(el.value || fallback, 10);
+    }
+
+    function getString(id, fallback = "") {
+      const el = document.getElementById(id);
+      if (!el) return fallback;
+      return String(el.value || fallback);
+    }
+
+    function updatePatientSummary() {
+      document.getElementById("patientSummary").innerHTML = `
+        <b>ID:</b> ${getString("pid")}<br>
+        <b>Nome:</b> ${getString("name")}<br>
+        <b>Idade:</b> ${getString("age")}<br>
+        <b>Sexo:</b> ${getString("sex")}<br>
+        <b>Subgrupo:</b> ${getString("subgroup")}
+      `;
+    }
+
+    function buildPayload() {
+      const payload = {
+        case_id: getString("pid", "unknown"),
+        development_history: {},
+        social_pragmatic: {},
+        rigidity_repetition: {},
+        sensory_profile: {},
+        masking_compensation: {},
+        functionality_adaptation: {},
+        multimodal_consistency: {},
+        differential_diagnosis: {},
+        evidence_quality: {
+          eq_overall_evidence_grade: getString("eq_overall_evidence_grade", "B"),
+          eq_developmental_evidence_grade: getString("eq_developmental_evidence_grade", "B")
+        },
+        trajectory_model: {},
+        final_context: {
+          fm_subgroup_profile: getString("subgroup", "mixed")
+        }
+      };
+
+      Object.entries(groups).forEach(([section, config]) => {
+        config.items.forEach(([id]) => {
+          payload[section][id] = getValue(id, 0);
+        });
+      });
+
+      return payload;
+    }
+
+    async function createPatient() {
+      updatePatientSummary();
+      const msg = document.getElementById("patientMessage");
+      msg.innerHTML = "";
+      try {
+        const response = await fetch("http://127.0.0.1:8000/patients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: getString("pid"),
+            name: getString("name"),
+            age: parseInt(getString("age", "0"), 10),
+            sex: getString("sex")
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          msg.innerHTML = `<div class="error-msg">Erro: ${data.detail || "falha ao salvar paciente"}</div>`;
+          return;
+        }
+        msg.innerHTML = `<div class="success-msg">Paciente salvo com sucesso: ${data.patient_id}</div>`;
+        await listPatients();
+      } catch (err) {
+        msg.innerHTML = `<div class="error-msg">Erro de conexão: ${String(err)}</div>`;
+      }
+    }
+
+    async function listPatients() {
+      const r = await fetch("http://127.0.0.1:8000/patients");
+      const d = await r.json();
+      document.getElementById("patients").innerText = JSON.stringify(d, null, 2);
+    }
+
+    function confidenceBadge(level) {
+      if (level === "HIGH") return ["badge badge-high", "Confiança alta"];
+      if (level === "MODERATE") return ["badge badge-mid", "Confiança moderada"];
+      return ["badge badge-low", "Confiança baixa"];
+    }
+
+    async function runScore() {
+      updatePatientSummary();
+      const payload = buildPayload();
+      document.getElementById("payloadPreview").textContent = JSON.stringify(payload, null, 2);
+
+      const resultBox = document.getElementById("resultBox");
+      resultBox.innerHTML = `<div class="badge badge-mid">Processando</div><p>Calculando e salvando avaliação...</p>`;
+
+      try {
+        const response = await fetch("http://127.0.0.1:8000/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          resultBox.innerHTML = `<div class="badge badge-low">Erro</div><pre>${JSON.stringify(data, null, 2)}</pre>`;
+          return;
+        }
+
+        const result = data.result;
+        const [badgeClass, badgeText] = confidenceBadge(result.confidence_level);
+
+        resultBox.innerHTML = `
+          <div class="${badgeClass}">${badgeText}</div>
+          <h3 style="margin-top:0">${result.recommendation}</h3>
+          <p><b>Evaluation ID:</b> ${data.evaluation_id}</p>
+          <div class="metrics">
+            <div class="metric"><b>SCS Final</b><span>${result.scs_final}</span></div>
+            <div class="metric"><b>DRI</b><span>${result.dri}</span></div>
+            <div class="metric"><b>DCI</b><span>${result.dci}</span></div>
+            <div class="metric"><b>Fenótipo</b><span style="font-size:15px">${result.phenotype}</span></div>
+          </div>
+          <p><b>Nível de confiança:</b> ${result.confidence_level}</p>
+          <pre>${JSON.stringify(result, null, 2)}</pre>
+        `;
+
+        await loadHistory();
+      } catch (err) {
+        resultBox.innerHTML = `<div class="badge badge-low">Erro de conexão</div><pre>${String(err)}</pre>`;
+      }
+    }
+
+    async function loadHistory() {
+      const pid = getString("pid", "unknown");
+      const box = document.getElementById("historyBox");
+      box.innerHTML = "<p>Carregando histórico...</p>";
+
+      try {
+        const r = await fetch(`http://127.0.0.1:8000/evaluations/${pid}`);
+        const d = await r.json();
+
+        if (!Array.isArray(d) || d.length === 0) {
+          box.innerHTML = "<p>Nenhuma avaliação encontrada para este paciente.</p>";
+          return;
+        }
+
+        box.innerHTML = d.map(item => `
+          <div class="history-item">
+            <div><b>Data:</b> ${item.created_at}</div>
+            <div><b>Evaluation ID:</b> ${item.evaluation_id}</div>
+            <div><b>Recomendação:</b> ${item.result.recommendation}</div>
+            <div><b>SCS Final:</b> ${item.result.scs_final}</div>
+            <div><b>Confiança:</b> ${item.result.confidence_level}</div>
+          </div>
+        `).join("");
+      } catch (err) {
+        box.innerHTML = `<p>Erro ao carregar histórico: ${String(err)}</p>`;
+      }
+    }
+
+    function resetForm() {
+      document.getElementById("pid").value = "teste-001";
+      document.getElementById("name").value = "Maria";
+      document.getElementById("age").value = "28";
+      document.getElementById("sex").value = "F";
+      document.getElementById("subgroup").value = "mixed";
+
+      document.querySelectorAll("select").forEach(select => {
+        if (!["subgroup", "eq_overall_evidence_grade", "eq_developmental_evidence_grade"].includes(select.id)) {
+          select.value = "0";
+        }
+      });
+
+      document.getElementById("eq_overall_evidence_grade").value = "B";
+      document.getElementById("eq_developmental_evidence_grade").value = "B";
+      document.getElementById("payloadPreview").textContent = "{}";
+      document.getElementById("resultBox").innerHTML = `<div class="badge badge-mid">Aguardando cálculo</div><p>Preencha os campos e clique em <b>Calcular avaliação</b>.</p>`;
+      document.getElementById("historyBox").innerHTML = "<p>Nenhum histórico carregado.</p>";
+      updatePatientSummary();
+    }
+
+    async function copyPayload() {
+      const payload = JSON.stringify(buildPayload(), null, 2);
+      try {
+        await navigator.clipboard.writeText(payload);
+        alert("Payload copiado.");
+      } catch {
+        alert("Não foi possível copiar automaticamente.");
+      }
+    }
+
+    function loadExample() {
+      document.getElementById("subgroup").value = "female_masking_profile";
+
+      const preset = {
+        dh_early_social_difference: 3,
+        dh_childhood_peer_difficulty: 3,
+        dh_childhood_rigidity: 2,
+        dh_childhood_restricted_interests: 2,
+        dh_family_or_school_corroboration: 2,
+        dh_developmental_trajectory_consistency: 3,
+
+        sp_reciprocity_difficulty: 3,
+        sp_social_initiation_difficulty: 2,
+        sp_context_reading_difficulty: 3,
+        sp_scripted_social_behavior: 3,
+        sp_social_exhaustion: 4,
+        sp_adjust_communication_difficulty: 2,
+        sp_social_naturalness_discrepancy: 3,
+        sp_global_social_pragmatic_severity: 3,
+
+        rr_distress_with_change: 3,
+        rr_need_for_routine: 3,
+        rr_cognitive_rigidity: 2,
+        rr_restricted_interest_intensity: 2,
+        rr_overload_in_chaotic_contexts: 3,
+        rr_global_rrp_severity: 3,
+
+        se_global_sensory_burden: 2,
+
+        mk_deliberate_social_imitation: 4,
+        mk_preparation_for_interactions: 4,
+        mk_constant_self_monitoring: 4,
+        mk_social_performance_internal_cost: 4,
+        mk_autistic_burnout_features: 3,
+        mk_global_masking_severity: 4,
+
+        fn_academic_occupational_impairment: 2,
+        fn_relationship_maintenance_difficulty: 3,
+        fn_adaptation_cost_hidden: 4,
+        fn_subjective_distress: 4,
+        fn_global_functional_burden: 3,
+
+        mc_self_report_consistency: 3,
+        mc_informant_agreement: 2,
+        mc_historical_record_agreement: 2,
+        mc_cross_domain_convergence: 3,
+        mc_temporal_stability: 3,
+        mc_multimodal_conflict_level: 1,
+
+        dd_adhd_explanatory_strength: 2,
+        dd_social_anxiety_explanatory_strength: 1,
+        dd_borderline_explanatory_strength: 1,
+        dd_ocd_obsessive_explanatory_strength: 1,
+        dd_trauma_cptsd_explanatory_strength: 1,
+        dd_global_rivalry_index: 1,
+
+        ntm_early_life_signal_presence: 3,
+        ntm_adolescent_compensation_emergence: 3,
+        ntm_adult_adaptation_overload: 4,
+        ntm_burnout_pattern_presence: 3,
+        ntm_lifespan_pattern_consistency: 3
+      };
+
+      Object.entries(preset).forEach(([key, value]) => {
+        const el = document.getElementById(key);
+        if (el) el.value = String(value);
+      });
+
+      document.getElementById("eq_overall_evidence_grade").value = "A";
+      document.getElementById("eq_developmental_evidence_grade").value = "B";
+      updatePatientSummary();
+      document.getElementById("payloadPreview").textContent = JSON.stringify(buildPayload(), null, 2);
+    }
+
+    renderAllFields();
+    loadExample();
+    updatePatientSummary();
+    listPatients();
+
+    ["pid", "name", "age", "sex", "subgroup"].forEach(id => {
+      document.getElementById(id).addEventListener("input", updatePatientSummary);
+      document.getElementById(id).addEventListener("change", updatePatientSummary);
+    });
+  </script>
+</body>
+</html>
