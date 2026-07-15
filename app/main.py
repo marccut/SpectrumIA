@@ -11,7 +11,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.auth import get_auth, initialize_session_state as init_auth_state
-from core.config import APP_DEBUG, APP_VERSION, validate_config
+from core.config import APP_DEBUG, APP_VERSION, DEMO_MODE_ENABLED, validate_config
 
 
 st.set_page_config(
@@ -107,14 +107,15 @@ def show_login_page(auth) -> None:
                 else:
                     st.error(message)
 
-    st.markdown("### Credenciais demo")
-    st.markdown(
-        """
-        - `demo@spectrumia.com` / `demo123`
-        - `doctor@spectrumia.com` / `doctor123`
-        - `patient@spectrumia.com` / `patient123`
-        """
-    )
+    if DEMO_MODE_ENABLED:
+        st.markdown("### Credenciais demo")
+        st.markdown(
+            """
+            - `demo@spectrumia.com` / `demo123`
+            - `doctor@spectrumia.com` / `doctor123`
+            - `patient@spectrumia.com` / `patient123`
+            """
+        )
 
     st.markdown("---")
     st.markdown(

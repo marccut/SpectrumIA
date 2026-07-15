@@ -60,19 +60,28 @@ class SupabaseClient:
 
     def __init__(self):
         """Initialize Supabase client."""
-        db_key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
+        # Prefer the anon/public key so Row Level Security (RLS) is enforced.
+        # The service-role key bypasses RLS and must NOT be the default for a
+        # client-facing app handling clinical data. It is used only as a last
+        # resort when no anon key is configured (and logged loudly). Admin
+        # operations that legitimately need to bypass RLS use a dedicated
+        # service-role client in core/auth.py (_get_admin_client).
+        db_key = SUPABASE_KEY or SUPABASE_SERVICE_KEY
         if not SUPABASE_URL or not db_key:
             raise ValueError(
                 "Supabase credentials not configured. "
-                "Set SUPABASE_URL plus SUPABASE_SERVICE_KEY or SUPABASE_KEY in environment."
+                "Set SUPABASE_URL plus SUPABASE_KEY (or SUPABASE_SERVICE_KEY) in environment."
             )
 
         self.client: Client = create_client(SUPABASE_URL, db_key)
-        self.using_service_role = bool(SUPABASE_SERVICE_KEY)
-        logger.info(
-            "Supabase client initialized with %s key",
-            "service role" if self.using_service_role else "anon",
-        )
+        self.using_service_role = not bool(SUPABASE_KEY) and bool(SUPABASE_SERVICE_KEY)
+        if self.using_service_role:
+            logger.warning(
+                "Supabase client initialized with SERVICE ROLE key — RLS is BYPASSED. "
+                "Configure SUPABASE_KEY (anon) + RLS policies for clinical-data safety."
+            )
+        else:
+            logger.info("Supabase client initialized with anon key (RLS enforced)")
 
     # ========================================================================
     # User Operations

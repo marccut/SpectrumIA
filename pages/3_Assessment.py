@@ -224,7 +224,9 @@ def save_gaze_data(session_id: str, gaze_samples: List[GazeDataPoint]) -> bool:
                 "Falha ao salvar gaze data no banco. "
                 "Os dados seguirão apenas localmente nesta sessão."
             )
-        return True
+        # Not persisted to the database — report failure honestly so callers
+        # do not treat in-memory/local data as saved.
+        return False
 
 
 def save_stimulus_metrics(

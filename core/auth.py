@@ -300,9 +300,12 @@ class SpectrumIAAuth:
         if user_data.get("demo"):
             return user_data
 
-        # No Supabase client -> can't validate.
+        # No Supabase client -> cannot validate a real session. Fail closed:
+        # never accept an unverifiable session for non-demo users.
         if not self.client:
-            return user_data
+            logger.warning("No Supabase client — cannot validate session; clearing.")
+            st.session_state.user_data = None
+            return None
 
         access_token: Optional[str] = user_data.get("session")
         if not access_token:
