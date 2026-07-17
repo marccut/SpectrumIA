@@ -13,7 +13,6 @@ Integration Points:
 """
 
 import logging
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 import json
@@ -23,7 +22,6 @@ from supabase import create_client, Client
 from postgrest.exceptions import APIError
 
 from core.config import (
-    SUPABASE_SERVICE_KEY,
     SUPABASE_URL,
     SUPABASE_KEY,
     RESULTS_RETENTION_DAYS,
@@ -58,30 +56,19 @@ class SupabaseClient:
     - Assessment results
     """
 
-    def __init__(self):
-        """Initialize Supabase client."""
-        # Prefer the anon/public key so Row Level Security (RLS) is enforced.
-        # The service-role key bypasses RLS and must NOT be the default for a
-        # client-facing app handling clinical data. It is used only as a last
-        # resort when no anon key is configured (and logged loudly). Admin
-        # operations that legitimately need to bypass RLS use a dedicated
-        # service-role client in core/auth.py (_get_admin_client).
-        db_key = SUPABASE_KEY or SUPABASE_SERVICE_KEY
-        if not SUPABASE_URL or not db_key:
+    def __init__(self, access_token: Optional[str]):
+        """Initialize an RLS-enforced client for one authenticated session."""
+        if not SUPABASE_URL or not SUPABASE_KEY:
             raise ValueError(
                 "Supabase credentials not configured. "
-                "Set SUPABASE_URL plus SUPABASE_KEY (or SUPABASE_SERVICE_KEY) in environment."
+                "Set SUPABASE_URL plus SUPABASE_KEY in environment."
             )
+        if not access_token:
+            raise ValueError("Authenticated Supabase access token is required.")
 
-        self.client: Client = create_client(SUPABASE_URL, db_key)
-        self.using_service_role = not bool(SUPABASE_KEY) and bool(SUPABASE_SERVICE_KEY)
-        if self.using_service_role:
-            logger.warning(
-                "Supabase client initialized with SERVICE ROLE key — RLS is BYPASSED. "
-                "Configure SUPABASE_KEY (anon) + RLS policies for clinical-data safety."
-            )
-        else:
-            logger.info("Supabase client initialized with anon key (RLS enforced)")
+        self.client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        self.client.postgrest.auth(access_token)
+        logger.info("Supabase client initialized with session JWT (RLS enforced)")
 
     # ========================================================================
     # User Operations
@@ -712,6 +699,59 @@ class SupabaseClient:
             raise
 
     # ========================================================================
+    # Questionnaire Operations
+    # ========================================================================
+
+    def save_questionnaire_result(
+        self,
+        user_id: str,
+        questionnaire_name: str,
+        total_score: float,
+        subscale_scores: Dict[str, float],
+        raw_responses: Dict[str, int],
+        risk_level: str,
+        camouflage_weight: float,
+        interpretation: str,
+    ) -> Dict[str, Any]:
+        """Persist one immutable CAT-Q or RAADS-R result for the current user."""
+        if questionnaire_name not in {"CAT-Q", "RAADS-R"}:
+            raise ValueError("Unsupported questionnaire name.")
+        if risk_level not in {"low", "moderate", "high"}:
+            raise ValueError("Invalid questionnaire risk level.")
+        if not 0.0 <= camouflage_weight <= 1.0:
+            raise ValueError("Camouflage weight must be between 0 and 1.")
+
+        questionnaire_result_id = str(uuid.uuid4())
+        data = {
+            "questionnaire_result_id": questionnaire_result_id,
+            "user_id": user_id,
+            "questionnaire_name": questionnaire_name,
+            "total_score": total_score,
+            "subscale_scores": subscale_scores,
+            "raw_responses": raw_responses,
+            "risk_level": risk_level,
+            "camouflage_weight": camouflage_weight,
+            "interpretation": interpretation,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            response = (
+                self.client.table("questionnaire_results")
+                .insert(data)
+                .execute()
+            )
+            logger.info(
+                "Questionnaire result created: %s (%s)",
+                questionnaire_result_id,
+                questionnaire_name,
+            )
+            return response.data[0]
+        except APIError as e:
+            logger.error("Error saving questionnaire result: %s", e)
+            raise
+
+    # ========================================================================
     # Helper Formatting Methods
     # ========================================================================
 
@@ -783,17 +823,13 @@ class SupabaseClient:
         )
 
 
-# Singleton instance — lock ensures only one SupabaseClient is created
-# even under concurrent Streamlit requests.
-_db_client: Optional[SupabaseClient] = None
-_db_lock = threading.Lock()
+def get_db(access_token: Optional[str]) -> SupabaseClient:
+    """Create an RLS-enforced database client for the current user session.
 
-
-def get_db() -> SupabaseClient:
-    """Get or create database client singleton (thread-safe)."""
-    global _db_client
-    if _db_client is None:
-        with _db_lock:
-            if _db_client is None:  # double-checked locking
-                _db_client = SupabaseClient()
-    return _db_client
+    The client is intentionally not cached globally: Streamlit serves multiple
+    user sessions in one process, so a mutable shared PostgREST token could
+    leak one user's authorization context into another session.
+    """
+    if not access_token:
+        raise ValueError("Authenticated Supabase access token is required.")
+    return SupabaseClient(access_token=access_token)

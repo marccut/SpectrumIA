@@ -4,6 +4,7 @@ Script independente para testar componentes de calibração.
 Execute: python3 test_calibration_components.py
 """
 
+import os
 import sys
 from pathlib import Path
 import traceback
@@ -125,7 +126,7 @@ try:
     from models.database import get_db
     print(f"  ℹ️  Conectando ao banco de dados...")
 
-    db = get_db()
+    db = get_db(os.getenv("SUPABASE_TEST_ACCESS_TOKEN", ""))
     print(f"  ✅ Database conectado")
     print(f"     - Tipo: Supabase")
 

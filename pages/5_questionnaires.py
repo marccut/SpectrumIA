@@ -17,7 +17,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.auth import get_auth, initialize_session_state, require_auth
+from core.auth import get_access_token, get_auth, initialize_session_state, require_auth
 from core.questionnaires import (
     CATQ_ITEMS, RAADSR_ITEMS,
     score_catq, score_raadsr, combined_camouflage_weight,
@@ -37,7 +37,7 @@ def _save_questionnaire(auth, questionnaire_name: str, result) -> bool:
         if not user_id:
             logger.warning("No user_id from auth — skipping DB save")
             return False
-        db = get_db()
+        db = get_db(get_access_token())
         db.save_questionnaire_result(
             user_id=user_id,
             questionnaire_name=questionnaire_name,

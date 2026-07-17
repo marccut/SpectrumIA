@@ -23,7 +23,7 @@ import json
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.auth import get_auth, initialize_session_state as init_auth_state
+from core.auth import get_access_token, get_auth, initialize_session_state as init_auth_state
 from core.config import (
     MEDIAPIPE_FACE_DETECTION_MIN_CONFIDENCE,
     MEDIAPIPE_FACE_MESH_MIN_TRACKING_CONFIDENCE,
@@ -160,7 +160,7 @@ def create_assessment_session(
         return _start_demo_assessment_session(user_id, calibration_id)
 
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         return _start_demo_assessment_session(user_id, calibration_id)
 
@@ -197,7 +197,7 @@ def save_gaze_data(session_id: str, gaze_samples: List[GazeDataPoint]) -> bool:
         return True
 
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info(f"Demo mode: Simulating save of {len(gaze_samples)} gaze samples")
         return True
@@ -245,7 +245,7 @@ def save_stimulus_metrics(
     Falls back to local-only (demo mode) when Supabase is unavailable or RLS blocks.
     """
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: metrics for stimulus '%s' kept in-memory only", stimulus_id)
         return True
@@ -317,7 +317,7 @@ def finish_assessment_session(session_id: str) -> bool:
         return True
 
     try:
-        db = get_db()
+        db = get_db(get_access_token())
     except ValueError:
         logger.info("Demo mode: Simulating assessment session completion")
         st.session_state.assessment_status = "completed"

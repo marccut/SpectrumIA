@@ -22,7 +22,7 @@ from typing import Optional, List
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.auth import get_auth, initialize_session_state as init_auth_state
+from core.auth import get_access_token, get_auth, initialize_session_state as init_auth_state
 from models.schemas import (
     AssessmentResultsResponse,
     ScreeningResult,
@@ -79,7 +79,7 @@ def get_risk_icon(screening_result: ScreeningResult) -> str:
 def load_user_results(user_id: str) -> List[AssessmentResultsResponse]:
     """Load all results for a user from database."""
     try:
-        db = get_db()
+        db = get_db(get_access_token())
         try:
             results = db.list_user_results(user_id, limit=50)
             return results
